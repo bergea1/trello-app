@@ -108,7 +108,7 @@ class Engine:
                 board,
             )
 
-            new_articles = Helpers.compare_lists(lists, plan)
+            new_articles = self.help.compare_lists(lists, plan)
 
             logging.info(
                 "%s: Antall nye artikler funnet: %d", mode.upper(), len(new_articles)
