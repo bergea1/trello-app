@@ -19,13 +19,13 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+RUN addgroup --gid 1001 --system app && \
+    adduser --no-create-home --shell /bin/false --disabled-password --uid 1001 --system --ingroup app app
+
 COPY --from=builder /install /usr/local 
 COPY --from=builder /app /app
 
-RUN mkdir -p logs
-
-RUN addgroup --gid 1001 --system app && \
-    adduser --no-create-home --shell /bin/false --disabled-password --uid 1001 --system --group app
+RUN install -d -o app -g app /app/logs
 
 USER app
 
