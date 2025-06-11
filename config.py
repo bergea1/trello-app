@@ -19,12 +19,12 @@ class Config:
     """
 
     ## BUCKET VARIABLES
-    BUCKET = os.getenv("BUCKET")
-    REGION = os.getenv("REGION")
-    KEY = os.getenv("KEY")
-    SECRET = os.getenv("SECRET")
-    PATH = os.getenv("PATH")
-    ENDPOINT = os.getenv("ENDPOINT")
+    SPACE_BUCKET = os.getenv("SPACE_BUCKET")
+    SPACE_REGION = os.getenv("SPACE_REGION")
+    SPACE_KEY = os.getenv("SPACE_KEY")
+    SPACE_SECRET = os.getenv("SPACE_SECRET")
+    SPACE_PATH = os.getenv("SPACE_PATH")
+    SPACE_ENDPOINT = os.getenv("SPACE_ENDPOINT")
 
     ## TRELLO API VARIABLES
     BASE_URL = os.getenv("BASE_URL")
@@ -157,12 +157,6 @@ class Config:
         "opinion": DEBATT_LABEL_PAPIR,
         "feature": FEATURE_LABEL_PAPIR,
         "gallery": BILDESERIE_LABEL_PAPIR,
-    }
-
-    INTERVALS = {
-        "new": 60,
-        "nett": 120,
-        "papir": 600,
     }
 
     ### LOGGING CONFIGURATION

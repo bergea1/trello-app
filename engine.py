@@ -1,5 +1,5 @@
 """
-Logikk for å hente artikler fra CUE og lage kort i Trello.
+Henter artikler fra CUE og lage kort i Trello.
 """
 
 # pylint: disable=E1101
@@ -57,6 +57,7 @@ class Engine:
             "CUSTOM_OPEN_NETT",
             "MODES",
             "FIELD_MAP",
+            "NETT",
         ]
 
         for attr in config_attrs:
@@ -215,6 +216,7 @@ class Engine:
         """
 
         cfg = self.field_map.get(argument)
+        cue_data = self.help.get_lists([self.nett["get_lists"]["LEVERT"]])
 
         logging.debug("Argument: %s", argument)
 
@@ -228,7 +230,7 @@ class Engine:
                 card_id = card["id"]
                 original_name = card["name"]
                 labels = [lbl["id"] for lbl in card.get("labels", [])]
-                result = await self.gets.main(articles=cue_id, avis=self.avis)
+                result = await self.gets.get_articles(articles=cue_id, avis=self.avis)
                 if not isinstance(result, list) or not result:
                     continue
 
@@ -241,6 +243,7 @@ class Engine:
                     logging.info("NETT: Oppdaterer kort: %s", card_id)
                     await self.handle_nett(
                         card_id,
+                        cue_data,
                         info,
                         custom_fields,
                         labels,
@@ -259,7 +262,7 @@ class Engine:
                 continue
 
     async def handle_nett(
-        self, card_id, info, custom_fields, labels, name_changed, cue_id
+        self, card_id, cue_data, info, custom_fields, labels, name_changed, cue_id
     ):
         """
         Oppdaterer Trello-kort for nettartikler.
@@ -280,8 +283,6 @@ class Engine:
 
         label_tags = (info.is_form, info.is_state)
         label_changed = self.trello.collect_labels(labels, label_tags)
-
-        cue_data = self.help.get_lists(self.levert_url)
 
         if cue_id in cue_data and self.submitted_label not in labels:
             labels.append(self.submitted_label)

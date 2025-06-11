@@ -5,6 +5,7 @@ Inneholder hjelpefunksjoner for engine.py
 # pylint: disable=E1101
 # pylint: disable=import-error
 
+
 import asyncio
 import json
 import logging
@@ -12,11 +13,12 @@ import os
 import re
 import time
 from collections import Counter, namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List
+from urllib.parse import quote
 
-import boto3
-import botocore.exceptions as boto_exceptions
+import boto3  # type: ignore
+import botocore.exceptions as boto_exceptions  # type: ignore
 import requests
 import requests.exceptions as req_exceptions
 from requests.adapters import HTTPAdapter
@@ -374,30 +376,44 @@ class Helpers:
         self.reqs = RequestsManager()
         self.client = self.session.client(
             "s3",
-            region_name=Config.REGION,
-            endpoint_url=Config.ENDPOINT,
-            aws_access_key_id=Config.KEY,
-            aws_secret_access_key=Config.SECRET,
+            region_name=Config.SPACE_REGION,
+            endpoint_url=Config.SPACE_ENDPOINT,
+            aws_access_key_id=Config.SPACE_KEY,
+            aws_secret_access_key=Config.SPACE_SECRET,
         )
 
-    def get_s3_file(self, bucket, key):
-        """
-        Henter en fil fra S3-bucket.
-        Args:
-            bucket (str): Navnet på S3-bucket.
-            key (str): Nøkkelen til filen i S3-bucket.
-        Returns:
-            dict: Innholdet i filen.
-        """
-
+    def get_s3_file(self, space_bucket, space_key):
+        """Retrieves a file from an S3 bucket."""
         try:
-            response = self.client.get_object(Bucket=bucket, Key=key)
+            response = self.client.get_object(Bucket=space_bucket, Key=space_key)
             content = response["Body"].read()
             return content
         except boto_exceptions.UnknownKeyError:
             return {"body": ""}
         except boto_exceptions.ClientError as e:
             return {"error": str(e)}
+
+    def build_url(self, url: str) -> str:
+        """
+        Bygger en URL som inkluderer en dato for de siste 7 dagene.
+
+        Dette er fordi URL-en som brukes til å finne artikler i CUE
+        krever en dato for å begrense søket til de siste 7 dagene.
+
+        Args:
+            url (str): URL-en som skal få dato.
+        """
+
+        today = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        last_week = today - timedelta(days=7)
+        start = last_week.strftime("%Y-%m-%dT00:00:00Z")
+        end = (today + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
+        date_range = f"{start}  TO  {end}"
+        encoded_date_range = quote(date_range, safe="")
+
+        return re.sub(r"%5B%5D", f"%5B{encoded_date_range}%5D", url, count=1)
 
     def get_lists(self, lists):
         """
@@ -406,28 +422,35 @@ class Helpers:
             lists (str): URL-ene som det skal hentes fra.
         """
 
-        auth = self.get_token()
-        headers = {"Authorization": f"{auth}"}
+        try:
+            auth = self.get_token()
+            headers = {"Authorization": f"{auth}"}
 
-        matches = []
-        for url in lists:
-            response = self.reqs.make_request("GET", url, headers=headers, timeout=10)
-            response.raise_for_status()
-            matched = list(
-                set(
-                    match.group(1)
-                    for match in re.finditer(
-                        r"<id>urn:story:(\d{7})</id>", response.text
+            matches = []
+            for url in lists:
+                _url = self.build_url(url)
+                response = self.reqs.make_request(
+                    "GET", _url, headers=headers, timeout=10
+                )
+                response.raise_for_status()
+                matched = list(
+                    set(
+                        match.group(1)
+                        for match in re.finditer(
+                            r"<id>urn:story:(\d{7})</id>", response.text
+                        )
                     )
                 )
-            )
-            logging.debug("GET_LIST: From %s List: %s", url, matched)
-            matches.extend(matched)
+                logging.debug("GET_LIST: From %s List: %s", url, matched)
+                matches.extend(matched)
 
-        counts = Counter(matches)
-        unique = [item for item, count in counts.items() if count == 1]
-        logging.debug("FETCHED: %s", unique)
-        return unique
+            counts = Counter(matches)
+            unique = [item for item, count in counts.items() if count == 1]
+            logging.debug("FETCHED: %s", unique)
+            return unique
+        except (req_exceptions.RequestException, re.error, KeyError, TypeError) as e:
+            print(f"Request to {url} failed: {e}")
+            return None
 
     def get_token(self):
         """
@@ -436,7 +459,7 @@ class Helpers:
         Returns:
             str: Token fra filen.
         """
-        response = Helpers.get_s3_file(self, Config.BUCKET, Config.PATH)
+        response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
         content_str = response.decode("utf-8")
         data = json.loads(content_str)
         token = data.get("cf.escenic.credentials", None)
