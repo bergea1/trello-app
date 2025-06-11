@@ -2,4 +2,4 @@ Dette er en enkel webscraper i Python som henter informasjon fra Cue, og sender 
 
 Trello Rest API: https://developer.atlassian.com/cloud/trello/rest/api-group-actions/#api-group-actions
 
-Se config.py for hvilke variabler som er i bruk.
+Se example.env for hvilke variabler som er i bruk.
