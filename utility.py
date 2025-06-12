@@ -428,29 +428,53 @@ class Helpers:
 
             matches = []
             for url in lists:
-                _url = self.build_url(url)
-                response = self.reqs.make_request(
-                    "GET", _url, headers=headers, timeout=10
-                )
-                response.raise_for_status()
-                matched = list(
-                    set(
-                        match.group(1)
-                        for match in re.finditer(
-                            r"<id>urn:story:(\d{7})</id>", response.text
+                try:
+                    _url = self.build_url(url)
+                    response = self.reqs.make_request(
+                        "GET", _url, headers=headers, timeout=10
+                    )
+
+                    if response is None:
+                        logging.error("Failed to fetch data from %s", _url)
+                        continue
+
+                    if response.status_code != 200:
+                        logging.error(
+                            "Request to %s failed with status code %s: %s",
+                            _url,
+                            response.status_code,
+                            response.text,
+                        )
+                        continue
+
+                    matched = list(
+                        set(
+                            match.group(1)
+                            for match in re.finditer(
+                                r"<id>urn:story:(\d{7})</id>", response.text
+                            )
                         )
                     )
-                )
-                logging.debug("GET_LIST: From %s List: %s", url, matched)
-                matches.extend(matched)
+                    logging.debug("GET_LIST: From %s List: %s", url, matched)
+                    matches.extend(matched)
+
+                except (
+                    req_exceptions.RequestException,
+                    re.error,
+                    KeyError,
+                    TypeError,
+                ) as e:
+                    print(f"Request to {url} failed: {e}")
 
             counts = Counter(matches)
             unique = [item for item, count in counts.items() if count == 1]
             logging.debug("FETCHED: %s", unique)
             return unique
-        except (req_exceptions.RequestException, re.error, KeyError, TypeError) as e:
-            print(f"Request to {url} failed: {e}")
-            return None
+        except (boto_exceptions.BotoCoreError, boto_exceptions.ClientError) as e:
+            logging.error(
+                "GET_LISTS: An error occurred while fetching lists: %s", str(e)
+            )
+            return []
 
     def get_token(self):
         """
@@ -630,7 +654,7 @@ class GetArticleDetails:
             logging.error("Request error: %s", str(e))
         except re.error as e:
             logging.error("Regex error: %s", str(e))
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (TypeError, AttributeError) as e:
             logging.error("Unexpected error: %s", str(e))
 
     async def get_articles(self, articles, avis):
