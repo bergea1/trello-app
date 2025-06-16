@@ -18,4 +18,4 @@ jobs:
       - name: Build and push Docker image from s3 folder
         run: |
           docker build -f s3/Dockerfile -t ghcr.io/${{ github.actor }}/s3-app:latest s3/
-          docker push ghcr.io/${{ github.actor }}/s3:latest
+          docker push ghcr.io/${{ github.actor }}/s3-app:latest
