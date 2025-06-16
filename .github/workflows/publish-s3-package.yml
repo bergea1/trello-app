@@ -1,8 +1,8 @@
-name: Build Docker Image CI for Trello/Cue app
+name: Build Docker Image CI for s3 Package
 
 on:
   push:
-  workflow_dispatch:
+  workflow_dispatch:  
 
 jobs:
   build_and_publish:
@@ -15,7 +15,7 @@ jobs:
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image from s3 folder
         run: |
-          docker build -f Dockerfile -t ghcr.io/${{ github.actor }}/trello-app:latest .
-          docker push ghcr.io/${{ github.actor }}/trello-app:latest
+          docker build -f s3/Dockerfile -t ghcr.io/${{ github.actor }}/s3-app:latest s3/
+          docker push ghcr.io/${{ github.actor }}/s3:latest
