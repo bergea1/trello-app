@@ -7,42 +7,54 @@ import fs from 'fs/promises';
 dotenv.config();
 puppeteer.use(StealthPlugin());
 
-const readSecret = async (envKey) => {
-  const path = `/run/secrets/${envKey.toLowerCase()}`;
+async function readSecret(secretName) {
+  const path = `/run/secrets/${secretName}`;
   try {
-    return (await fs.readFile(path, 'utf8')).trim();
+    const data = await fs.readFile(path, 'utf8');
+    return data.trim();
   } catch (err) {
-    throw new Error(`❌ Missing required secret file: ${path}`);
+    console.error(`Failed to read secret ${secretName}:`, err.message);
+    return null;
   }
-};
+}
 
-const [
-  WEBSITE_URL,
-  TARGET_URL,
-  SPACE_BUCKET,
-  SPACE_REGION,
-  SPACE_KEY,
-  SPACE_SECRET,
-  SPACE_PATH
-] = await Promise.all([
-  readSecret('WEBSITE_URL'),
-  readSecret('TARGET_URL'),
-  readSecret('SPACE_BUCKET'),
-  readSecret('SPACE_REGION'),
-  readSecret('SPACE_KEY'),
-  readSecret('SPACE_SECRET'),
-  readSecret('SPACE_PATH'),
-]);
 
-console.log({
-  SPACE_BUCKET,
-  SPACE_REGION,
-  SPACE_KEY,
-  SPACE_SECRET,
-  SPACE_PATH,
-  WEBSITE_URL,
-  TARGET_URL
-});
+(async () => {
+  try {
+    const [
+      WEBSITE_URL,
+      TARGET_URL,
+      SPACE_BUCKET,
+      SPACE_REGION,
+      SPACE_KEY,
+      SPACE_SECRET,
+      SPACE_PATH
+    ] = await Promise.all([
+      readSecret('website_url'),
+      readSecret('target_url'),
+      readSecret('space_bucket'),
+      readSecret('space_region'),
+      readSecret('space_key'),
+      readSecret('space_secret'),
+      readSecret('space_path')
+    ]);
+
+    console.log({
+      WEBSITE_URL,
+      TARGET_URL,
+      SPACE_BUCKET,
+      SPACE_REGION,
+      SPACE_KEY,
+      SPACE_SECRET,
+      SPACE_PATH
+    });
+
+    // You can now use these variables securely
+  } catch (error) {
+    console.error('Error loading secrets:', error);
+    process.exit(1);
+  }
+})();
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
