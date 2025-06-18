@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  app:
+    image: ghcr.io/bergea1/s3-app:latest
+    command: ["npm", "start"]
+    secrets:
+      - space_region
+      - space_bucket
+      - space_key
+      - space_secret
+      - space_path
+      - website_url
+      - target_url
+
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
+
+      resources:
+        limits:
+          cpus: "0.50"     
+          memory: 512M     
+        reservations:
+          cpus: "0.10"     
+          memory: 128M
+
+secrets:
+  space_region:
+    external: true
+  space_bucket:
+    external: true
+  space_key:
+    external: true
+  space_secret:
+    external: true
+  space_path:
+    external: true
+  website_url:
+    external: true
+  target_url:
+    external: true

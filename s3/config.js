@@ -10,8 +10,7 @@ async function loadConfig() {
     SPACE_REGION,
     SPACE_KEY,
     SPACE_SECRET,
-    SPACE_PATH,
-    SPACE_ENDPOINT
+    SPACE_PATH
   ] = await Promise.all([
     readSecret('website_url'),
     readSecret('target_url'),
@@ -19,8 +18,7 @@ async function loadConfig() {
     readSecret('space_region'),
     readSecret('space_key'),
     readSecret('space_secret'),
-    readSecret('space_path'),
-    readSecret('space_endpoint')
+    readSecret('space_path')
   ]);
 
   return {
@@ -30,8 +28,7 @@ async function loadConfig() {
     SPACE_REGION,
     SPACE_KEY,
     SPACE_SECRET,
-    SPACE_PATH,
-    SPACE_ENDPOINT,
+    SPACE_PATH
   };
 }
 

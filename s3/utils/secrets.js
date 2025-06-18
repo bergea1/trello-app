@@ -6,7 +6,7 @@ export async function readSecret(name) {
     const data = await readFile(path, 'utf8');
     return data.trim();
   } catch (err) {
-    console.warn(`Warning: Could not read secret "${name}": ${err.message}`);
+    console.warn(`Could not read secret "${name}": ${err.message}`);
     return null;
   }
 }
