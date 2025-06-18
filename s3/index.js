@@ -8,13 +8,11 @@ dotenv.config();
 puppeteer.use(StealthPlugin());
 
 const readSecret = async (envKey) => {
-  const path = process.env[envKey];
-  if (!path) return process.env[envKey];
+  const path = `/run/secrets/${envKey.toLowerCase()}`;
   try {
     return (await fs.readFile(path, 'utf8')).trim();
   } catch (err) {
-    console.warn(`Could not read secret ${envKey} from ${path}, falling back to .env`);
-    return process.env[envKey];
+    throw new Error(`❌ Missing required secret file: ${path}`);
   }
 };
 
@@ -35,6 +33,16 @@ const [
   readSecret('SPACE_SECRET'),
   readSecret('SPACE_PATH'),
 ]);
+
+console.log({
+  SPACE_BUCKET,
+  SPACE_REGION,
+  SPACE_KEY,
+  SPACE_SECRET,
+  SPACE_PATH,
+  WEBSITE_URL,
+  TARGET_URL
+});
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
