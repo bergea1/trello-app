@@ -7,14 +7,28 @@ import fs from 'fs/promises';
 dotenv.config();
 puppeteer.use(StealthPlugin());
 
-const WEBSITE_URL = process.env.WEBSITE_URL
-const TARGET_URL = process.env.TARGET_URL
+const readSecret = async (path) =>
+  (await fs.readFile(path, 'utf8')).trim();
+
+const [
+  WEBSITE_URL,
+  TARGET_URL,
+  SPACE_BUCKET,
+  SPACE_REGION,
+  SPACE_KEY,
+  SPACE_SECRET,
+  SPACE_PATH
+] = await Promise.all([
+  readSecret(process.env.WEBSITE_URL),
+  readSecret(process.env.TARGET_URL),
+  readSecret(process.env.SPACE_BUCKET),
+  readSecret(process.env.SPACE_REGION),
+  readSecret(process.env.SPACE_KEY),
+  readSecret(process.env.SPACE_SECRET),
+  readSecret(process.env.SPACE_PATH),
+]);
+
 const REFRESH_INTERVAL = 5 * 60 * 1000;
-const SPACE_BUCKET = process.env.SPACE_BUCKET
-const SPACE_REGION = process.env.SPACE_REGION
-const SPACE_KEY = process.env.SPACE_KEY
-const SPACE_SECRET = process.env.SPACE_SECRET
-const SPACE_PATH = process.env.SPACE_PATH
 
 const requestHeaders = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
