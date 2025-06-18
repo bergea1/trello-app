@@ -1,4 +1,4 @@
-const { readSecret } = require('./utils/secrets');
+import { readSecret } from './utils/secrets.js';
 
 let configPromise;
 
@@ -35,11 +35,9 @@ async function loadConfig() {
   };
 }
 
-function getConfig() {
+export function getConfig() {
   if (!configPromise) {
     configPromise = loadConfig();
   }
   return configPromise;
 }
-
-module.exports = { getConfig };

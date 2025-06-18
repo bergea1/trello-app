@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 dotenv.config();
 puppeteer.use(StealthPlugin());
 
-const { getConfig } = require('./config');
+import { getConfig } from './config.js';
 
 (async () => {
   const config = await getConfig();
