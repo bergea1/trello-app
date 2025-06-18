@@ -3,16 +3,10 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import dotenv from 'dotenv';
 import { S3, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import fs from 'fs/promises';
+import { getConfig } from './config.js';
 
 dotenv.config();
 puppeteer.use(StealthPlugin());
-
-import { getConfig } from './config.js';
-
-(async () => {
-  const config = await getConfig();
-  console.log('Loaded config:', config);  
-})();
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
@@ -21,7 +15,11 @@ const requestHeaders = {
   Referer: 'https://www.google.com/',
 };
 
-const s3Client = new S3({
+(async () => {
+  const config = await getConfig();
+  console.log('Loaded config:', config);
+
+  const s3Client = new S3({
     forcePathStyle: false,
     endpoint: `https://${config.SPACE_REGION}.digitaloceanspaces.com`,
     region: config.SPACE_REGION,
@@ -29,32 +27,32 @@ const s3Client = new S3({
       accessKeyId: config.SPACE_KEY,
       secretAccessKey: config.SPACE_SECRET,
     },
-});
-  
-async function readS3File() {
+  });
+
+  async function readS3File() {
     try {
-        const command = new GetObjectCommand({
-            Bucket: config.SPACE_BUCKET,
-            Key: config.SPACE_PATH,
-        });
+      const command = new GetObjectCommand({
+        Bucket: config.SPACE_BUCKET,
+        Key: config.SPACE_PATH,
+      });
 
-        const { Body } = await s3Client.send(command);
+      const { Body } = await s3Client.send(command);
 
-        const streamToString = (stream) =>
+      const streamToString = (stream) =>
         new Promise((resolve, reject) => {
-            const chunks = [];
-            stream.on("data", (chunk) => chunks.push(chunk));
-            stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-            stream.on("error", reject);
+          const chunks = [];
+          stream.on("data", (chunk) => chunks.push(chunk));
+          stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+          stream.on("error", reject);
         });
 
-        return await streamToString(Body);
+      return await streamToString(Body);
     } catch (err) {
-        console.error("Error reading file from S3:", err);
+      console.error("Error reading file from S3:", err);
     }
-}
+  }
 
-async function uploadToS3() {
+  async function uploadToS3() {
     const fileBuffer = await fs.readFile('./localStorage.json');
     try {
       const command = new PutObjectCommand({
@@ -63,35 +61,35 @@ async function uploadToS3() {
         Body: fileBuffer,
         ContentType: "application/json",
       });
-  
+
       await s3Client.send(command);
       console.log("File uploaded successfully.");
     } catch (err) {
       console.error("Error uploading file to S3:", err);
     }
   }
-  
-async function loginWithGoogle () {
-  let browser;
-  const fileContent = await readS3File();
-  if (!fileContent) return;
 
-  try {
-    browser = await puppeteer.launch({ 
-      headless: true,
-      defaultViewport: null,
-      executablePath: '/usr/bin/google-chrome',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+  async function loginWithGoogle() {
+    let browser;
+    const fileContent = await readS3File();
+    if (!fileContent) return;
 
-    const page = await browser.newPage();
-    await page.setDefaultNavigationTimeout(0);
-    await page.setDefaultTimeout(0);
-    await page.setExtraHTTPHeaders({ ...requestHeaders });
-    await page.setViewport({ width: 1200, height: 692 });
-    await page.goto(config.WEBSITE_URL, { waitUntil: 'load' });
-   
-    await page.evaluate(storage => {
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        defaultViewport: null,
+        executablePath: '/usr/bin/google-chrome',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+
+      const page = await browser.newPage();
+      await page.setDefaultNavigationTimeout(0);
+      await page.setDefaultTimeout(0);
+      await page.setExtraHTTPHeaders({ ...requestHeaders });
+      await page.setViewport({ width: 1200, height: 692 });
+      await page.goto(config.WEBSITE_URL, { waitUntil: 'load' });
+
+      await page.evaluate(storage => {
         try {
           const data = JSON.parse(storage);
           for (let key in data) {
@@ -103,47 +101,47 @@ async function loginWithGoogle () {
         }
       }, fileContent);
 
-    await checkLogin(page);
+      await checkLogin(page);
 
-    while (true) {
-      await refreshAndGetToken(page);
-      await new Promise(resolve => setTimeout(resolve, REFRESH_INTERVAL));
-    }
+      while (true) {
+        await refreshAndGetToken(page);
+        await new Promise(resolve => setTimeout(resolve, REFRESH_INTERVAL));
+      }
 
-  } catch (error) {
-    console.error("Error during login:", error);
-  } finally {
-    if (browser && browser.close) {
-      await browser.close();
-      console.log("Browser closed.");
+    } catch (error) {
+      console.error("Error during login:", error);
+    } finally {
+      if (browser && browser.close) {
+        await browser.close();
+        console.log("Browser closed.");
+      }
     }
   }
-}
 
-async function checkLogin(page) {
-  while (true) {
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    await page.goto(config.TARGET_URL, { waitUntil: 'load' });
-    if (page.url().includes(config.TARGET_URL)) {
-      console.log("Logged in successfully! Retrieving token...");
+  async function checkLogin(page) {
+    while (true) {
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      await page.goto(config.TARGET_URL, { waitUntil: 'load' });
+      if (page.url().includes(config.TARGET_URL)) {
+        console.log("Logged in successfully! Retrieving token...");
+        return;
+      }
+    }
+  }
+
+  async function refreshAndGetToken(page) {
+    if (!page || page.isClosed()) {
+      console.error("ERROR: `page` is undefined! Cannot refresh.");
       return;
     }
-  }
-}
-    
-async function refreshAndGetToken(page) {
-  if (!page || page.isClosed()) {
-    console.error("ERROR: `page` is undefined! Cannot refresh.");
-    return;
-  }
 
-  try {
-    console.log("Refreshing page...");
-    
-    await page.reload({ waitUntil: "domcontentloaded" }); 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      console.log("Refreshing page...");
 
-    const localStorageData = await page.evaluate(() => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const localStorageData = await page.evaluate(() => {
         const data = {};
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -151,34 +149,32 @@ async function refreshAndGetToken(page) {
         }
         return data;
       });
-    
+
       await fs.writeFile('./localStorage.json', JSON.stringify(localStorageData, null, 2), 'utf-8');
       await uploadToS3();
-      
+
       const token = await page.evaluate(() => localStorage.getItem('cf.escenic.credentials') || '');
       console.log("Token:", token);
       // sendToken(token);
-    
-    
+
     } catch (error) {
       console.error("Error during token retrieval:", error);
     }
   }
 
-async function keepSessionAlive() {
-  while (true) {
-    try {
-      await loginWithGoogle();
-    } catch (err) {
-      console.error("Session crashed:", err);
+  async function keepSessionAlive() {
+    while (true) {
+      try {
+        await loginWithGoogle();
+      } catch (err) {
+        console.error("Session crashed:", err);
+      }
+
+      console.log("Restarting session in 10 seconds...");
+      await new Promise(res => setTimeout(res, 10000));
     }
-
-    console.log("Restarting session in 10 seconds...");
-    await new Promise(res => setTimeout(res, 10000));
   }
-}
 
-
-(async () => {
+  // Start the whole process
   await keepSessionAlive();
 })();
