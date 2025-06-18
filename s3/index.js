@@ -13,48 +13,55 @@ async function readSecret(secretName) {
     const data = await fs.readFile(path, 'utf8');
     return data.trim();
   } catch (err) {
-    console.error(`Failed to read secret ${secretName}:`, err.message);
+    console.error(`Failed to read secret "${secretName}": ${err.message}`);
     return null;
   }
 }
 
+const loadSecrets = async () => {
+  const [
+    WEBSITE_URL,
+    TARGET_URL,
+    SPACE_BUCKET,
+    SPACE_REGION,
+    SPACE_KEY,
+    SPACE_SECRET,
+    SPACE_PATH,
+    SPACE_ENDPOINT
+  ] = await Promise.all([
+    readSecret('website_url'),
+    readSecret('target_url'),
+    readSecret('space_bucket'),
+    readSecret('space_region'),
+    readSecret('space_key'),
+    readSecret('space_secret'),
+    readSecret('space_path'),
+    readSecret('space_endpoint')
+  ]);
+
+  return {
+    WEBSITE_URL,
+    TARGET_URL,
+    SPACE_BUCKET,
+    SPACE_REGION,
+    SPACE_KEY,
+    SPACE_SECRET,
+    SPACE_PATH,
+    SPACE_ENDPOINT
+  };
+};
 
 (async () => {
-  try {
-    const [
-      WEBSITE_URL,
-      TARGET_URL,
-      SPACE_BUCKET,
-      SPACE_REGION,
-      SPACE_KEY,
-      SPACE_SECRET,
-      SPACE_PATH
-    ] = await Promise.all([
-      readSecret('website_url'),
-      readSecret('target_url'),
-      readSecret('space_bucket'),
-      readSecret('space_region'),
-      readSecret('space_key'),
-      readSecret('space_secret'),
-      readSecret('space_path')
-    ]);
-
-    console.log({
-      WEBSITE_URL,
-      TARGET_URL,
-      SPACE_BUCKET,
-      SPACE_REGION,
-      SPACE_KEY,
-      SPACE_SECRET,
-      SPACE_PATH
-    });
-
-    // You can now use these variables securely
-  } catch (error) {
-    console.error('Error loading secrets:', error);
-    process.exit(1);
-  }
-})();
+  const {
+    WEBSITE_URL,
+    TARGET_URL,
+    SPACE_BUCKET,
+    SPACE_REGION,
+    SPACE_KEY,
+    SPACE_SECRET,
+    SPACE_PATH,
+    SPACE_ENDPOINT
+  } = await loadSecrets();
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
