@@ -7,61 +7,12 @@ import fs from 'fs/promises';
 dotenv.config();
 puppeteer.use(StealthPlugin());
 
-async function readSecret(secretName) {
-  const path = `/run/secrets/${secretName}`;
-  try {
-    const data = await fs.readFile(path, 'utf8');
-    return data.trim();
-  } catch (err) {
-    console.error(`Failed to read secret "${secretName}": ${err.message}`);
-    return null;
-  }
-}
-
-const loadSecrets = async () => {
-  const [
-    WEBSITE_URL,
-    TARGET_URL,
-    SPACE_BUCKET,
-    SPACE_REGION,
-    SPACE_KEY,
-    SPACE_SECRET,
-    SPACE_PATH,
-    SPACE_ENDPOINT
-  ] = await Promise.all([
-    readSecret('website_url'),
-    readSecret('target_url'),
-    readSecret('space_bucket'),
-    readSecret('space_region'),
-    readSecret('space_key'),
-    readSecret('space_secret'),
-    readSecret('space_path'),
-    readSecret('space_endpoint')
-  ]);
-
-  return {
-    WEBSITE_URL,
-    TARGET_URL,
-    SPACE_BUCKET,
-    SPACE_REGION,
-    SPACE_KEY,
-    SPACE_SECRET,
-    SPACE_PATH,
-    SPACE_ENDPOINT
-  };
-};
+const { getConfig } = require('./config');
 
 (async () => {
-  const {
-    WEBSITE_URL,
-    TARGET_URL,
-    SPACE_BUCKET,
-    SPACE_REGION,
-    SPACE_KEY,
-    SPACE_SECRET,
-    SPACE_PATH,
-    SPACE_ENDPOINT
-  } = await loadSecrets();
+  const config = await getConfig();
+  console.log('Loaded config:', config);  
+})();
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
@@ -72,19 +23,19 @@ const requestHeaders = {
 
 const s3Client = new S3({
     forcePathStyle: false,
-    endpoint: `https://${SPACE_REGION}.digitaloceanspaces.com`,
-    region: SPACE_REGION,
+    endpoint: `https://${config.SPACE_REGION}.digitaloceanspaces.com`,
+    region: config.SPACE_REGION,
     credentials: {
-      accessKeyId: SPACE_KEY,
-      secretAccessKey: SPACE_SECRET,
+      accessKeyId: config.SPACE_KEY,
+      secretAccessKey: config.SPACE_SECRET,
     },
 });
   
 async function readS3File() {
     try {
         const command = new GetObjectCommand({
-            Bucket: SPACE_BUCKET,
-            Key: SPACE_PATH,
+            Bucket: config.SPACE_BUCKET,
+            Key: config.SPACE_PATH,
         });
 
         const { Body } = await s3Client.send(command);
@@ -107,8 +58,8 @@ async function uploadToS3() {
     const fileBuffer = await fs.readFile('./localStorage.json');
     try {
       const command = new PutObjectCommand({
-        Bucket: SPACE_BUCKET,
-        Key: SPACE_PATH,
+        Bucket: config.SPACE_BUCKET,
+        Key: config.SPACE_PATH,
         Body: fileBuffer,
         ContentType: "application/json",
       });
@@ -138,7 +89,7 @@ async function loginWithGoogle () {
     await page.setDefaultTimeout(0);
     await page.setExtraHTTPHeaders({ ...requestHeaders });
     await page.setViewport({ width: 1200, height: 692 });
-    await page.goto(WEBSITE_URL, { waitUntil: 'load' });
+    await page.goto(config.WEBSITE_URL, { waitUntil: 'load' });
    
     await page.evaluate(storage => {
         try {
@@ -172,8 +123,8 @@ async function loginWithGoogle () {
 async function checkLogin(page) {
   while (true) {
     await new Promise(resolve => setTimeout(resolve, 10000));
-    await page.goto(TARGET_URL, { waitUntil: 'load' });
-    if (page.url().includes(TARGET_URL)) {
+    await page.goto(config.TARGET_URL, { waitUntil: 'load' });
+    if (page.url().includes(config.TARGET_URL)) {
       console.log("Logged in successfully! Retrieving token...");
       return;
     }
