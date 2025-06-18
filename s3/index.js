@@ -120,7 +120,7 @@ async function uploadToS3() {
     }
   }
   
-export default async function loginWithGoogle (req, res) {
+async function loginWithGoogle () {
   let browser;
   const fileContent = await readS3File();
   if (!fileContent) return;
