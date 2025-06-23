@@ -27,7 +27,7 @@ secrets:
     external: true
 
 services:
-  app:
+  s3:
     image: ghcr.io/bergea1/s3-app:latest
     command: ["npm", "start"]
     secrets:
@@ -47,7 +47,7 @@ services:
         max_attempts: 5
         window: 60s
       labels:
-        app: s3-app
+        app: s3
       resources:
         limits:
           cpus: "0.50"     
