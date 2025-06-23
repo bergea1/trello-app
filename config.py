@@ -18,6 +18,18 @@ class Config:
     Config.
     """
 
+    @staticmethod
+    def str_to_bool(value):
+        """Convert string to boolean."""
+        return value.lower() in {"true", "1", "yes", "on"}
+
+    ## GENERAL VARIABLES
+    APP_NAME = os.getenv("APP_NAME", "")
+    APP_VERSION = os.getenv("APP_VERSION", "")
+    RUN_NETT = str_to_bool(os.getenv("RUN_NETT", "True"))
+    RUN_PAPIR = str_to_bool(os.getenv("RUN_PAPIR", "False"))
+    MODE = os.getenv("MODE", "dev")
+
     ## BUCKET VARIABLES
     SPACE_BUCKET = os.getenv("SPACE_BUCKET")
     SPACE_REGION = os.getenv("SPACE_REGION")
@@ -61,6 +73,7 @@ class Config:
     DEBATT_LABEL = os.getenv("DEBATT_LABEL")
     BILDESERIE_LABEL = os.getenv("BILDESERIE_LABEL")
     NYHET_LABEL = os.getenv("NYHET_LABEL")
+    VIDEO_LABEL = os.getenv("VIDEO_LABEL")
 
     ### TRELLO PAPIR STATE LABELS
     APPROVED_LABEL_PAPIR = os.getenv("APPROVED_LABEL_PAPIR")
@@ -84,6 +97,14 @@ class Config:
     CUSTOM_OPEN_NETT = os.getenv("CUSTOM_OPEN_NETT")
 
     ### MAPPINGS
+
+    INIT_CONF = {
+        "APP_NAME": APP_NAME,
+        "APP_VERSION": APP_VERSION,
+        "MODE": MODE,
+        "RUN_NETT": RUN_NETT,
+        "RUN_PAPIR": RUN_PAPIR,
+    }
     NETT = {
         "get_lists": {
             "IARBEID": IARBEID_URL,
@@ -138,6 +159,7 @@ class Config:
         "opinion": DEBATT_LABEL,
         "feature": FEATURE_LABEL,
         "gallery": BILDESERIE_LABEL,
+        "video": VIDEO_LABEL,
     }
 
     STATES_PAPIR = {

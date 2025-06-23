@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from config import Config
 from engine import Engine
 
 
@@ -33,7 +34,23 @@ async def run_papir(engine):
 async def main():
     """Main function"""
     engine = Engine()
-    await asyncio.gather(run_nett(engine), run_papir(engine))
+    tasks = []
+
+    print(f"Starting {Config.INIT_CONF.get('APP_NAME')}")
+    print(f"Version: {Config.INIT_CONF.get('APP_VERSION')}")
+    print(f"{Config.INIT_CONF.get('MODE')} mode.")
+
+    if Config.INIT_CONF.get("RUN_NETT"):
+        tasks.append(run_nett(engine))
+    if Config.INIT_CONF.get("RUN_PAPIR"):
+        tasks.append(run_papir(engine))
+
+    if tasks:
+        await asyncio.gather(*tasks)
+    else:
+        logging.warning(
+            "No tasks scheduled to run. Check RUN_NETT and RUN_PAPIR config values."
+        )
 
 
 if __name__ == "__main__":
