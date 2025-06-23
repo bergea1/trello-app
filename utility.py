@@ -451,7 +451,7 @@ class Helpers:
                         set(
                             match.group(1)
                             for match in re.finditer(
-                                r"<id>urn:story:(\d{7})</id>", response.text
+                                r"<id>urn:[^:]+:(\d{7})</id>", response.text
                             )
                         )
                     )
