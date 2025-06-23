@@ -1,0 +1,90 @@
+version: "3.9"
+
+configs:
+  sandnesposten_config:
+    external: true
+
+secrets:
+  space_endpoint:
+    external: true
+  space_region:
+    external: true
+  space_bucket:
+    external: true
+  space_key:
+    external: true
+  space_secret:
+    external: true
+  space_path:
+    external: true
+  website_url:
+    external: true
+  target_url:
+    external: true
+  trello_token:
+    external: true
+  trello_api:
+    external: true
+
+services:
+  app:
+    image: ghcr.io/bergea1/s3-app:latest
+    command: ["npm", "start"]
+    secrets:
+      - space_region
+      - space_bucket
+      - space_key
+      - space_secret
+      - space_path
+      - website_url
+      - target_url
+
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
+      labels:
+        app: s3-app
+      resources:
+        limits:
+          cpus: "0.50"     
+          memory: 512M     
+        reservations:
+          cpus: "0.10"     
+          memory: 128M
+      
+  sandnesposten:
+    image: ghcr.io/bergea1/trello-app:latest
+    command: ["python", "main.py"]
+    configs:
+      - source: sandnesposten_config
+        target: /config.env
+    secrets:
+      - trello_token
+      - trello_api
+      - space_region
+      - space_bucket
+      - space_key
+      - space_secret
+      - space_path
+      - space_endpoint
+
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
+      labels:
+        app: sandnesposten
+      resources:
+        limits:
+          cpus: "0.50"     
+          memory: 512M     
+        reservations:
+          cpus: "0.10"     
+          memory: 128M

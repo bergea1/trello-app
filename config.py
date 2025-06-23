@@ -9,8 +9,35 @@ from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv  # pylint: disable=import-error
 
-basedir = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(os.path.join(basedir, ".env"))
+DOCKER_CONFIG = "/config.env"
+if os.path.exists(DOCKER_CONFIG):
+    load_dotenv(DOCKER_CONFIG)
+else:
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    load_dotenv(os.path.join(basedir, ".env"))
+
+
+def str_to_bool(value):
+    """
+    Returnerer en bool fra string.
+    """
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"true", "1", "yes", "on"}
+
+
+def get_secrets(key):
+    """
+    Sjekker om det finnes Docker secrets, eller .env fil.
+    """
+    path = f"/run/secrets/{key.lower()}"
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as secret_file:
+                return secret_file.read().strip()
+    except (OSError, IOError) as e:
+        logging.warning("Kunne ikke lese secret for '%s': %s", key, e)
+    return None
 
 
 class Config:
@@ -18,32 +45,27 @@ class Config:
     Config.
     """
 
-    @staticmethod
-    def str_to_bool(value):
-        """Convert string to boolean."""
-        return value.lower() in {"true", "1", "yes", "on"}
-
     ## GENERAL VARIABLES
-    APP_NAME = os.getenv("APP_NAME", "")
-    APP_VERSION = os.getenv("APP_VERSION", "")
+    APP_NAME = os.getenv("APP_NAME")
+    APP_VERSION = os.getenv("APP_VERSION")
     RUN_NETT = str_to_bool(os.getenv("RUN_NETT", "True"))
     RUN_PAPIR = str_to_bool(os.getenv("RUN_PAPIR", "False"))
     MODE = os.getenv("MODE", "dev")
 
     ## BUCKET VARIABLES
-    SPACE_BUCKET = os.getenv("SPACE_BUCKET")
-    SPACE_REGION = os.getenv("SPACE_REGION")
-    SPACE_KEY = os.getenv("SPACE_KEY")
-    SPACE_SECRET = os.getenv("SPACE_SECRET")
-    SPACE_PATH = os.getenv("SPACE_PATH")
-    SPACE_ENDPOINT = os.getenv("SPACE_ENDPOINT")
+    SPACE_BUCKET = get_secrets("space_bucket") or os.getenv("SPACE_BUCKET")
+    SPACE_REGION = get_secrets("space_region") or os.getenv("SPACE_REGION")
+    SPACE_KEY = get_secrets("space_key") or os.getenv("SPACE_KEY")
+    SPACE_SECRET = get_secrets("space_secret") or os.getenv("SPACE_SECRET")
+    SPACE_PATH = get_secrets("space_path") or os.getenv("SPACE_PATH")
+    SPACE_ENDPOINT = get_secrets("space_endpoint") or os.getenv("SPACE_ENDPOINT")
 
     ## TRELLO API VARIABLES
     BASE_URL = os.getenv("BASE_URL")
     BASE_URL_CARDS = os.getenv("BASE_URL_CARDS")
     IS_ONLINE = os.getenv("IS_ONLINE")
-    API_KEY = os.getenv("API_KEY")
-    API_TOKEN = os.getenv("API_TOKEN")
+    API_KEY = get_secrets("trello_api") or os.getenv("API_KEY")
+    API_TOKEN = get_secrets("trello_token") or os.getenv("API_TOKEN")
 
     ## TRELLO ID VARIABLES
     NETT_BOARD = os.getenv("NETT_BOARD")
