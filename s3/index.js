@@ -17,7 +17,7 @@ const requestHeaders = {
 
 (async () => {
   const config = await getConfig();
-  console.log('Loaded config:', config);
+  //console.log('Loaded config:', config);
 
   const s3Client = new S3({
     forcePathStyle: false,
