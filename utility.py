@@ -395,10 +395,10 @@ class Helpers:
 
     def build_url(self, url: str) -> str:
         """
-        Bygger en URL som inkluderer en dato for de siste 7 dagene.
+        Bygger en URL som inkluderer en dato for de siste X dagene.
 
         Dette er fordi URL-en som brukes til å finne artikler i CUE
-        krever en dato for å begrense søket til de siste 7 dagene.
+        krever en dato for å begrense søket til de siste X dagene.
 
         Args:
             url (str): URL-en som skal få dato.
@@ -407,8 +407,8 @@ class Helpers:
         today = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        last_week = today - timedelta(days=7)
-        start = last_week.strftime("%Y-%m-%dT00:00:00Z")
+        last = today - timedelta(days=60)
+        start = last.strftime("%Y-%m-%dT00:00:00Z")
         end = (today + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
         date_range = f"{start}  TO  {end}"
         encoded_date_range = quote(date_range, safe="")
