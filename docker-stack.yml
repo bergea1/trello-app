@@ -5,6 +5,8 @@ configs:
     external: true
   ringblad_config:
     external: true
+  budstikka_config:
+    external: true
 
 secrets:
   space_endpoint:
