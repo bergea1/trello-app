@@ -91,68 +91,68 @@ services:
           cpus: "0.10"     
           memory: 128M
 
-    ringblad:
-      image: ghcr.io/bergea1/trello-app:latest
-      command: ["python", "main.py"]
-      configs:
-        - source: ringblad_config
-          target: /config.env
-      secrets:
-        - trello_token
-        - trello_api
-        - space_region
-        - space_bucket
-        - space_key
-        - space_secret
-        - space_path
-        - space_endpoint
+  ringblad:
+    image: ghcr.io/bergea1/trello-app:latest
+    command: ["python", "main.py"]
+    configs:
+      - source: ringblad_config
+        target: /config.env
+    secrets:
+      - trello_token
+      - trello_api
+      - space_region
+      - space_bucket
+      - space_key
+      - space_secret
+      - space_path
+      - space_endpoint
 
-      deploy:
-        replicas: 1
-        restart_policy:
-          condition: on-failure
-          delay: 10s
-          max_attempts: 5
-          window: 60s
-        labels:
-          app: ringblad
-        resources:
-          limits:
-            cpus: "0.50"     
-            memory: 512M     
-          reservations:
-            cpus: "0.10"     
-            memory: 128M
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
+      labels:
+        app: ringblad
+      resources:
+        limits:
+          cpus: "0.50"     
+          memory: 512M     
+        reservations:
+          cpus: "0.10"     
+          memory: 128M
 
-    budstikka:
-      image: ghcr.io/bergea1/trello-app:latest
-      command: ["python", "main.py"]
-      configs:
-        - source: budstikka_config
-          target: /config.env
-      secrets:
-        - trello_token
-        - trello_api
-        - space_region
-        - space_bucket
-        - space_key
-        - space_secret
-        - space_path
-        - space_endpoint
+  budstikka:
+    image: ghcr.io/bergea1/trello-app:latest
+    command: ["python", "main.py"]
+    configs:
+      - source: budstikka_config
+        target: /config.env
+    secrets:
+      - trello_token
+      - trello_api
+      - space_region
+      - space_bucket
+      - space_key
+      - space_secret
+      - space_path
+      - space_endpoint
 
-      deploy:
-        replicas: 1
-        restart_policy:
-          condition: on-failure
-          delay: 10s
-          max_attempts: 5
-          window: 60s
-        labels:
-          app: budstikka
-        resources:
-          limits:
-            cpus: "0.50"     
-            memory: 512M     
-          reservations:
-            cpus: "0.10"     
-            memory: 128M
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 60s
+      labels:
+        app: budstikka
+      resources:
+        limits:
+          cpus: "0.50"     
+          memory: 512M     
+        reservations:
+          cpus: "0.10"     
+          memory: 128M
