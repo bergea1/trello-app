@@ -407,7 +407,7 @@ class Helpers:
         today = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        last = today - timedelta(days=60)
+        last = today - timedelta(days=7)
         start = last.strftime("%Y-%m-%dT00:00:00Z")
         end = (today + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
         date_range = f"{start}  TO  {end}"
