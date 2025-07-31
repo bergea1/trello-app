@@ -17,7 +17,6 @@ const requestHeaders = {
 
 (async () => {
   const config = await getConfig();
-  //console.log('Loaded config:', config);
 
   const s3Client = new S3({
     forcePathStyle: false,
@@ -153,10 +152,6 @@ const requestHeaders = {
       await fs.writeFile('./localStorage.json', JSON.stringify(localStorageData, null, 2), 'utf-8');
       await uploadToS3();
 
-      const token = await page.evaluate(() => localStorage.getItem('cf.escenic.credentials') || '');
-      console.log("Token:", token);
-      // sendToken(token);
-
     } catch (error) {
       console.error("Error during token retrieval:", error);
     }
@@ -175,6 +170,5 @@ const requestHeaders = {
     }
   }
 
-  // Start the whole process
   await keepSessionAlive();
 })();

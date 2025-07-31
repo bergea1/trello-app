@@ -199,7 +199,7 @@ class TrelloManager:
                 f"{self.base_url}boards/{board}/cards?"
                 f"{kwargs['fields']}&{kwargs['customFieldItems']}"
             )
-        elif kwargs["fields"] and not kwargs["CustomFieldsItems"]:
+        elif kwargs["fields"] and not kwargs["customFieldsItems"]:
             url = f"{self.base_url}boards/{board}/cards?{kwargs['fields']}"
         else:
             url = f"{self.base_url}boards/{board}/cards"
@@ -388,10 +388,12 @@ class Helpers:
             response = self.client.get_object(Bucket=space_bucket, Key=space_key)
             content = response["Body"].read()
             return content
-        except boto_exceptions.UnknownKeyError:
-            return {"body": ""}
+        except boto_exceptions.UnknownKeyError as e:
+            logging.error("S3 file not found: %s", e)
+            return
         except boto_exceptions.ClientError as e:
-            return {"error": str(e)}
+            logging.error("S3 ClientError: %s", e)
+            return
 
     def build_url(self, url: str) -> str:
         """
