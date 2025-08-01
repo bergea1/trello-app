@@ -388,12 +388,10 @@ class Helpers:
             response = self.client.get_object(Bucket=space_bucket, Key=space_key)
             content = response["Body"].read()
             return content
-        except boto_exceptions.UnknownKeyError as e:
-            logging.error("S3 file not found: %s", e)
-            return
+        except boto_exceptions.UnknownKeyError:
+            return {"body": ""}
         except boto_exceptions.ClientError as e:
-            logging.error("S3 ClientError: %s", e)
-            return
+            return {"error": str(e)}
 
     def build_url(self, url: str) -> str:
         """

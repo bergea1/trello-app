@@ -152,6 +152,7 @@ const requestHeaders = {
       await fs.writeFile('./localStorage.json', JSON.stringify(localStorageData, null, 2), 'utf-8');
       await uploadToS3();
 
+
     } catch (error) {
       console.error("Error during token retrieval:", error);
     }
