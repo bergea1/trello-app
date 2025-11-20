@@ -145,7 +145,6 @@ class TrelloManager:
             "API_TOKEN",
             "BASE_URL",
             "BASE_URL_CARDS",
-            "IS_ONLINE",
             "CUSTOM_PAPIR",
             "CUSTOM_NETT",
             "CUSTOM_PUB_PAPIR",
@@ -164,23 +163,10 @@ class TrelloManager:
             "token": self.api_token,
         }
 
-        self.is_online_url = f"{self.base_url}cards/{self.is_online}"
         self.all_cards_nett = f"{self.base_url}boards/{self.nett_board}/cards"
         self.all_cards_papir = f"{self.base_url}boards/{self.papir_board}/cards"
 
-    def is_online(self):
-        """
-        Dødmannsknapp for å kunne se i Trello om programmet virker.
-        Oppdaterer et kort i Trello for å indikere at programmet er på.
-        """
 
-        now = datetime.now()
-        plus_10 = now + timedelta(minutes=-50)
-        name = "STATUS: 🟢 PÅ 🟢"
-        params = {**self.auth_params, "due": plus_10, "name": name}
-        card = self.reqs.make_request("PUT", self.is_online_url, params=params)
-        if card:
-            logging.info("Trello API er på.")
 
     def get_cards(self, board, sort, **kwargs):
         """
@@ -397,9 +383,6 @@ class Helpers:
         """
         Bygger en URL som inkluderer en dato for de siste X dagene.
 
-        Dette er fordi URL-en som brukes til å finne artikler i CUE
-        krever en dato for å begrense søket til de siste X dagene.
-
         Args:
             url (str): URL-en som skal få dato.
         """
@@ -478,10 +461,8 @@ class Helpers:
 
     def get_token(self):
         """
-        Henter ut en token fra en fil hentet fra S3-bucket.
+        Henter ut en fil fra S3-bucket.
         Bruker get_s3_file for å hente filen.
-        Returns:
-            str: Token fra filen.
         """
         response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
         content_str = response.decode("utf-8")
