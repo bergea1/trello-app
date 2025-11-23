@@ -265,6 +265,8 @@ class Engine:
                 if not cue_id or len(cue_id) != 7:
                     continue
 
+                ##
+
                 card_id = card["id"]
                 original_name = card["name"]
                 labels = [lbl["id"] for lbl in card.get("labels", [])]
