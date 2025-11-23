@@ -218,7 +218,7 @@ class Engine:
                 "papir": lambda: self.trello.get_cards(
                     self.PAPIR_BOARD,
                     sort=False,
-                    fields="fields=name,desc,labels",
+                    fields="fields=name,desc,labels&filter=all",
                     customFieldItems="customFieldItems=true",
                 ),
             }
