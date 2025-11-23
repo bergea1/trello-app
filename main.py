@@ -1,57 +1,213 @@
-"""Main file for the Ringblad engine"""
+"""
+Trello Automation Engine
+
+This application monitors CUE articles and automatically creates/updates 
+Trello cards for both online (NETT) and print (PAPIR) publications.
+
+Features:
+- Monitors CUE for new articles and creates Trello cards
+- Updates existing Trello cards with changes from CUE
+"""
 
 import asyncio
 import logging
+import signal
+import sys
 
 from config import Config
 from engine import Engine
 
+shutdown_flag = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    global shutdown_flag
+    signal_name = signal.Signals(signum).name
+    print(f"\n🛑 Received {signal_name} - Initiating graceful shutdown...")
+    logging.info("Shutdown signal received: %s", signal_name)
+    shutdown_flag = True
+
 
 async def run_nett(engine):
-    """Kjører i loop for nettutgaven"""
-    while True:
+    """Kjører i loop for nett"""
+    logging.info("🌐 NETT monitoring started - checking every 60 seconds")
+    
+    while not shutdown_flag:
         try:
+            logging.info("🔍 NETT: Checking for new articles...")
             await engine.check_for_new("nett")
-            await asyncio.sleep(60)
+            
+            if shutdown_flag:
+                break
+                
+            logging.info("⏱️  NETT: Waiting 60 seconds before checking for changes...")
+            for _ in range(60):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+            
+            if shutdown_flag:
+                break
+                
+            logging.info("🔄 NETT: Checking for changes in existing cards...")
             await engine.check_for_changes("nett")
+            
         except (ConnectionError, asyncio.TimeoutError) as e:
-            logging.error("Error: %s", e)
-            await asyncio.sleep(60)
+            logging.error("🚨 NETT Connection Error: %s", e)
+            logging.info("⏰ Retrying in 60 seconds...")
+            for _ in range(60):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+        except Exception as e:
+            logging.error("💥 NETT Unexpected Error: %s", e, exc_info=True)
+            logging.info("⏰ Retrying in 60 seconds...")
+            for _ in range(60):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+    
+    logging.info("🌐 NETT monitoring stopped")
 
 
 async def run_papir(engine):
-    """Kjører i loop for papirutgaven"""
-    while True:
+    """Kjører i loop for papir"""
+    logging.info("📰 PAPIR monitoring started - checking every 180 seconds")
+    
+    while not shutdown_flag:
         try:
+            logging.info("🔍 PAPIR: Checking for new articles...")
             await engine.check_for_new("papir")
-            await asyncio.sleep(180)
+            
+            if shutdown_flag:
+                break
+                
+            logging.info("⏱️  PAPIR: Waiting 180 seconds before checking for changes...")
+            for _ in range(180):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+            
+            if shutdown_flag:
+                break
+                
+            logging.info("🔄 PAPIR: Checking for changes in existing cards...")
             await engine.check_for_changes("papir")
+            
         except (ConnectionError, asyncio.TimeoutError) as e:
-            logging.error("Error: %s", e)
-            await asyncio.sleep(60)
+            logging.error("🚨 PAPIR Connection Error: %s", e)
+            logging.info("⏰ Retrying in 60 seconds...")
+            for _ in range(60):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+        except Exception as e:
+            logging.error("💥 PAPIR Unexpected Error: %s", e, exc_info=True)
+            logging.info("⏰ Retrying in 60 seconds...")
+            for _ in range(60):
+                if shutdown_flag:
+                    break
+                await asyncio.sleep(1)
+    
+    logging.info("📰 PAPIR monitoring stopped")
 
 
 async def main():
     """Main function"""
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     engine = Engine()
     tasks = []
-
-    print(f"Starting {Config.INIT_CONF.get('APP_NAME')}")
-    print(f"Version: {Config.INIT_CONF.get('APP_VERSION')}")
-    print(f"{Config.INIT_CONF.get('MODE')} mode.")
-
-    if Config.INIT_CONF.get("RUN_NETT"):
-        tasks.append(run_nett(engine))
-    if Config.INIT_CONF.get("RUN_PAPIR"):
-        tasks.append(run_papir(engine))
-
-    if tasks:
-        await asyncio.gather(*tasks)
+    
+    print("=" * 60)
+    print("🚀 TRELLO AUTOMATION ENGINE")
+    print("=" * 60)
+    
+    app_name = Config.APP_NAME or "Unknown application"
+    app_version = Config.APP_VERSION or "Unknown version"
+    mode = Config.MODE or "Development"
+    
+    print(f"📱 Application: {app_name}")
+    print(f"📊 Version: {app_version}")
+    print(f"🔧 Mode: {mode.upper()}")
+    print("-" * 60)
+    
+    print("⚙️  CONFIGURATION STATUS:")
+    print("-" * 30)
+    
+    if Config.RUN_NETT:
+        print("✅ NETT Mode: ENABLED")
+        print("   → Monitoring online articles from CUE")
+        print("   → Creating/updating Trello cards for web content")
+        print("   → Check interval: 60 seconds for new + changes")
     else:
+        print("❌ NETT Mode: DISABLED")
+        print("   → Online article monitoring is turned off")
+    
+    print()
+     
+    if Config.RUN_PAPIR:
+        print("✅ PAPIR Mode: ENABLED")
+        print("   → Monitoring print articles from CUE")
+        print("   → Creating/updating Trello cards for print content")
+        print("   → Check interval: 180 seconds for new + changes")
+    else:
+        print("❌ PAPIR Mode: DISABLED")
+        print("   → Print article monitoring is turned off")
+    
+    print()
+    
+    if Config.INCLUDE_CHANGE:
+        print("✅ CHANGE TRACKING: ENABLED")
+        print("   → Last modified dates will be updated on cards")
+    else:
+        print("❌ CHANGE TRACKING: DISABLED")
+        print("   → Last modified dates will NOT be updated")
+    
+    print("-" * 60)
+    
+    if Config.RUN_NETT:
+        tasks.append(run_nett(engine))
+        print("📋 Scheduled: NETT monitoring task")
+    
+    if Config.RUN_PAPIR:
+        tasks.append(run_papir(engine))
+        print("📋 Scheduled: PAPIR monitoring task")
+    
+    if tasks:
+        print(f"\n🎯 Starting {len(tasks)} monitoring task(s)...")
+        print("=" * 60)
+        print("🔄 ENGINE RUNNING - Press Ctrl+C to stop")
+        print("=" * 60)
+        
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            logging.info("Tasks cancelled during shutdown")
+        finally:
+            print("\n" + "=" * 60)
+            print("✅ SHUTDOWN COMPLETE")
+            print("=" * 60)
+    else:
+        print("\n⚠️  WARNING: No tasks scheduled!")
+        print("💡 SOLUTION: Enable at least one mode by setting:")
+        print("   • RUN_NETT=True (for online articles)")
+        print("   • RUN_PAPIR=True (for print articles)")
+        print("=" * 60)
         logging.warning(
             "No tasks scheduled to run. Check RUN_NETT and RUN_PAPIR config values."
         )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n🛑 Application interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n💥 Fatal error: {e}")
+        logging.error("Fatal error in main: %s", e, exc_info=True)
+        sys.exit(1)
