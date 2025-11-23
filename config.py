@@ -54,6 +54,15 @@ class Config:
     INCLUDE_CHANGE = str_to_bool(os.getenv("INCLUDE_CHANGE", "False"))
     INCLUDE_GODKJENT_URL = str_to_bool(os.getenv("INCLUDE_GODKJENT_URL", "True"))
     INCLUDE_PUBLISERT_URL = str_to_bool(os.getenv("INCLUDE_PUBLISERT_URL", "True"))
+    INCLUDE_LEVERT_URL_PAPIR = str_to_bool(
+        os.getenv("INCLUDE_LEVERT_URL_PAPIR", "True")
+    )
+    INCLUDE_GODKJENT_URL_PAPIR = str_to_bool(
+        os.getenv("INCLUDE_GODKJENT_URL_PAPIR", "True")
+    )
+    INCLUDE_PUBLISERT_URL_PAPIR = str_to_bool(
+        os.getenv("INCLUDE_PUBLISERT_URL_PAPIR", "True")
+    )
 
     ## BUCKET VARIABLES
     SPACE_BUCKET = get_secrets("space_bucket") or os.getenv("SPACE_BUCKET")
@@ -82,7 +91,6 @@ class Config:
     LEVERT_URL = os.getenv("LEVERT_URL")
     GODKJENT_URL = os.getenv("GODKJENT_URL")
     PUBLISERT_URL = os.getenv("PUBLISERT_URL")
-    PUBLISHED_OPEN = os.getenv("PUBLISHED_OPEN")
     AVIS = os.getenv("AVIS")
 
     ### TRELLO NETT STATE LABELS
@@ -90,7 +98,6 @@ class Config:
     SUBMITTED_LABEL = os.getenv("SUBMITTED_LABEL")
     APPROVED_LABEL = os.getenv("APPROVED_LABEL")
     SCHEDULED_LABEL = os.getenv("SCHEDULED_LABEL")
-    DRAFT_LABEL = os.getenv("DRAFT_LABEL")
 
     ### TRELLO NETT TYPE LABELS
     ANMELDELSE_LABEL = os.getenv("ANMELDELSE_LABEL")
@@ -104,7 +111,6 @@ class Config:
     APPROVED_LABEL_PAPIR = os.getenv("APPROVED_LABEL_PAPIR")
     PUBLISHED_LABEL_PAPIR = os.getenv("PUBLISHED_LABEL_PAPIR")
     SUBMITTED_LABEL_PAPIR = os.getenv("SUBMITTED_LABEL_PAPIR")
-    DRAFT_LABEL_PAPIR = os.getenv("DRAFT_LABEL_PAPIR")
 
     ### TRELLO PAPIR TYPE LABELS
     ANMELDELSE_LABEL_PAPIR = os.getenv("ANMELDELSE_LABEL_PAPIR")
@@ -146,12 +152,12 @@ class Config:
         "innboks": NETT_IARBEID,
     }
 
-    PAPIR_GET_LISTS = {
-        "LEVERT": LEVERT_URL,
-    }
-    if INCLUDE_GODKJENT_URL:
+    PAPIR_GET_LISTS = {}
+    if INCLUDE_LEVERT_URL_PAPIR:
+        PAPIR_GET_LISTS["LEVERT"] = LEVERT_URL
+    if INCLUDE_GODKJENT_URL_PAPIR:
         PAPIR_GET_LISTS["GODKJENT"] = GODKJENT_URL
-    if INCLUDE_PUBLISERT_URL:
+    if INCLUDE_PUBLISERT_URL_PAPIR:
         PAPIR_GET_LISTS["PUBLISERT"] = PUBLISERT_URL
 
     PAPIR = {
@@ -184,7 +190,6 @@ class Config:
         "submitted": SUBMITTED_LABEL,
         "approved": APPROVED_LABEL,
         "scheduled": SCHEDULED_LABEL,
-        "draft": DRAFT_LABEL,
     }
 
     CARD_FORM = {
@@ -204,7 +209,6 @@ class Config:
         "submitted": SUBMITTED_LABEL_PAPIR,
         "approved": APPROVED_LABEL_PAPIR,
         "scheduled": PUBLISHED_LABEL_PAPIR,
-        "draft": DRAFT_LABEL_PAPIR,
     }
 
     CARD_FORM_PAPIR = {

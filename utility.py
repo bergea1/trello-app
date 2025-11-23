@@ -152,7 +152,6 @@ class TrelloManager:
         self.CUSTOM_OPEN_NETT = Config.CUSTOM_OPEN_NETT
         self.NETT_BOARD = Config.NETT_BOARD
         self.PAPIR_BOARD = Config.PAPIR_BOARD
-        self.PUBLISHED_OPEN = Config.PUBLISHED_OPEN
 
         self.auth_params = {
             "key": self.API_KEY,
