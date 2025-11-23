@@ -179,7 +179,7 @@ class Engine:
 
                 create_card = self.trello.create_card(
                     innboks,
-                    name=info.overskrift_lang,
+                    name=info.overskrift,
                     desc=info.card_id,
                     idlabels=[info.is_form],
                 )
