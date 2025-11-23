@@ -274,7 +274,7 @@ class Engine:
 
                 info = Helpers.extract_article_info(result[0])
 
-                if info.publish_time and info.publish_time.strip():
+                if info.publish_time and not info.publish_time.strip():
                     continue
 
                 new_name = getattr(info, cfg["name_attr"])
