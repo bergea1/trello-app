@@ -91,6 +91,7 @@ class Config:
     LEVERT_URL = os.getenv("LEVERT_URL")
     GODKJENT_URL = os.getenv("GODKJENT_URL")
     PUBLISERT_URL = os.getenv("PUBLISERT_URL")
+    PUBLISHED_OPEN = os.getenv("PUBLISHED_OPEN")
     AVIS = os.getenv("AVIS")
 
     ### TRELLO NETT STATE LABELS
@@ -158,7 +159,7 @@ class Config:
     if INCLUDE_GODKJENT_URL_PAPIR:
         PAPIR_GET_LISTS["GODKJENT"] = GODKJENT_URL
     if INCLUDE_PUBLISERT_URL_PAPIR:
-        PAPIR_GET_LISTS["PUBLISERT"] = PUBLISERT_URL
+        PAPIR_GET_LISTS["PUBLISERT"] = PUBLISHED_OPEN
 
     PAPIR = {
         "get_lists": PAPIR_GET_LISTS,

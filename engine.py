@@ -48,6 +48,7 @@ class Engine:
         self.LEVERT_URL = self.config.LEVERT_URL
         self.GODKJENT_URL = self.config.GODKJENT_URL
         self.PUBLISERT_URL = self.config.PUBLISERT_URL
+        self.PUBLISHED_OPEN = self.config.PUBLISHED_OPEN
         self.CUSTOM_NETT = self.config.CUSTOM_NETT
         self.CUSTOM_PAPIR = self.config.CUSTOM_PAPIR
         self.CUSTOM_LAST_NETT = self.config.CUSTOM_LAST_NETT
@@ -108,9 +109,19 @@ class Engine:
                 )
 
             elif mode == "papir":
-                lists = self.help.get_lists(cfg.get("get_lists", {}).values())
 
-                if lists is None:
+                searcher_lists = await self.help.searcher()
+                get_lists_result = self.help.get_lists(
+                    cfg.get("get_lists", {}).values()
+                )
+
+                lists = []
+                if searcher_lists:
+                    lists.extend(searcher_lists)
+                if get_lists_result:
+                    lists.extend(get_lists_result)
+
+                if not lists:
                     logging.error(
                         "%s Error: Klarte ikke å hente artikler fra Cue.", mode.upper()
                     )

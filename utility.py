@@ -427,20 +427,27 @@ class Helpers:
                         logging.error("Failed to fetch data from %s", _url)
                         continue
 
-                    if response.status_code != 200:
-                        logging.error(
-                            "Request to %s failed with status code %s: %s",
-                            _url,
-                            response.status_code,
-                            response.text,
-                        )
-                        continue
+                    # Handle both Response objects and parsed JSON data
+                    if hasattr(response, "status_code"):
+                        # It's a Response object
+                        if response.status_code != 200:
+                            logging.error(
+                                "Request to %s failed with status code %s: %s",
+                                _url,
+                                response.status_code,
+                                response.text,
+                            )
+                            continue
+                        response_text = response.text
+                    else:
+                        # It's already parsed data (dict), convert back to text for regex
+                        response_text = str(response)
 
                     matched = list(
                         set(
                             match.group(1)
                             for match in re.finditer(
-                                r"<id>urn:[^:]+:(\d{7})</id>", response.text
+                                r"<id>urn:[^:]+:(\d{7})</id>", response_text
                             )
                         )
                     )
@@ -453,7 +460,7 @@ class Helpers:
                     KeyError,
                     TypeError,
                 ) as e:
-                    print(f"Request to {url} failed: {e}")
+                    logging.error("Request to %s failed: %s", url, e)
 
             counts = Counter(matches)
             unique = [item for item, count in counts.items() if count == 1]
@@ -464,6 +471,48 @@ class Helpers:
                 "GET_LISTS: An error occurred while fetching lists: %s", str(e)
             )
             return []
+
+    async def searcher(self):
+        """Søker etter publiserte saker."""
+
+        url = Config.PUBLISHED_OPEN
+        print(url)
+
+        if url is None:
+            logging.error("PUBLISHED_OPEN URL is not set.")
+            return
+
+        response = self.reqs.make_request("GET", url)
+
+        if not response:
+            logging.error("Klarte ikke å hente artikler.")
+            return
+
+        data = {}
+
+        if hasattr(response, "json"):
+            try:
+                data = response.json()
+            except ValueError:
+                logging.error("Failed to parse JSON response")
+                return
+        elif isinstance(response, dict):
+            data = response
+        else:
+            logging.error("Invalid response type:")
+            return
+
+        slugs = [
+            item["metadata"]["slug"]
+            for item in data.get("results", [])
+            if "metadata" in item and "slug" in item["metadata"]
+        ]
+
+        ids = [
+            match.group(1) for slug in slugs if (match := re.search(r"(\d{7})$", slug))
+        ]
+        logging.debug("SEARCHER: Fant %s", ids)
+        return ids
 
     def get_token(self):
         """
