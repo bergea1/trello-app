@@ -52,6 +52,8 @@ class Config:
     RUN_PAPIR = str_to_bool(os.getenv("RUN_PAPIR", "False"))
     MODE = os.getenv("MODE", "dev")
     INCLUDE_CHANGE = str_to_bool(os.getenv("INCLUDE_CHANGE", "False"))
+    INCLUDE_GODKJENT_URL = str_to_bool(os.getenv("INCLUDE_GODKJENT_URL", "True"))
+    INCLUDE_PUBLISERT_URL = str_to_bool(os.getenv("INCLUDE_PUBLISERT_URL", "True"))
 
     ## BUCKET VARIABLES
     SPACE_BUCKET = get_secrets("space_bucket") or os.getenv("SPACE_BUCKET")
@@ -128,23 +130,32 @@ class Config:
         "RUN_NETT": RUN_NETT,
         "RUN_PAPIR": RUN_PAPIR,
     }
+
+    NETT_GET_LISTS = {
+        "IARBEID": IARBEID_URL,
+        "LEVERT": LEVERT_URL,
+    }
+    if INCLUDE_GODKJENT_URL:
+        NETT_GET_LISTS["GODKJENT"] = GODKJENT_URL
+    if INCLUDE_PUBLISERT_URL:
+        NETT_GET_LISTS["PUBLISERT"] = PUBLISERT_URL
+
     NETT = {
-        "get_lists": {
-            "IARBEID": IARBEID_URL,
-            "LEVERT": LEVERT_URL,
-            "GODKJENT": GODKJENT_URL,
-            "PUBLISERT": PUBLISERT_URL,
-        },
+        "get_lists": NETT_GET_LISTS,
         "board": NETT_BOARD,
         "innboks": NETT_IARBEID,
     }
 
+    PAPIR_GET_LISTS = {
+        "LEVERT": LEVERT_URL,
+    }
+    if INCLUDE_GODKJENT_URL:
+        PAPIR_GET_LISTS["GODKJENT"] = GODKJENT_URL
+    if INCLUDE_PUBLISERT_URL:
+        PAPIR_GET_LISTS["PUBLISERT"] = PUBLISERT_URL
+
     PAPIR = {
-        "get_lists": {
-            "LEVERT": LEVERT_URL,
-            "GODKJENT": GODKJENT_URL,
-            "PUBLISERT": PUBLISERT_URL,
-        },
+        "get_lists": PAPIR_GET_LISTS,
         "board": PAPIR_BOARD,
         "innboks": PAPIR_INNBOKS,
     }

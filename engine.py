@@ -42,6 +42,7 @@ class Engine:
         self.PUBLISHED_OPEN = self.config.PUBLISHED_OPEN
         self.SUBMITTED_LABEL = self.config.SUBMITTED_LABEL
         self.APPROVED_LABEL = self.config.APPROVED_LABEL
+        self.PUBLISHED_LABEL = self.config.PUBLISHED_LABEL
         self.PAPIR_INNBOKS = self.config.PAPIR_INNBOKS
         self.NETT_IARBEID = self.config.NETT_IARBEID
         self.IARBEID_URL = self.config.IARBEID_URL
@@ -55,6 +56,8 @@ class Engine:
         self.CUSTOM_PUB_PAPIR = self.config.CUSTOM_PUB_PAPIR
         self.CUSTOM_OPEN_NETT = self.config.CUSTOM_OPEN_NETT
         self.INCLUDE_CHANGE = self.config.INCLUDE_CHANGE
+        self.INCLUDE_GODKJENT_URL = self.config.INCLUDE_GODKJENT_URL
+        self.INCLUDE_PUBLISERT_URL = self.config.INCLUDE_PUBLISERT_URL
         self.MODES = self.config.MODES
         self.FIELD_MAP = self.config.FIELD_MAP
         self.NETT = self.config.NETT
@@ -76,7 +79,14 @@ class Engine:
             board = cfg["board"]
             innboks = cfg["innboks"]
 
-            lists = self.help.get_lists(cfg.get("get_lists", {}).values())
+            if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
+                lists = []
+                for url in cfg.get("get_lists", {}).values():
+                    legacy_list = self.help.get_legacy_list(url)
+                    if legacy_list:
+                        lists.extend(legacy_list)
+            else:
+                lists = self.help.get_lists(cfg.get("get_lists", {}).values())
 
             if lists is None:
                 logging.error(
@@ -146,9 +156,11 @@ class Engine:
         for article in articles:
             try:
                 if not isinstance(article, dict):
-                    logging.warning("Skipping article: expected dict, got %s", type(article))
+                    logging.warning(
+                        "Skipping article: expected dict, got %s", type(article)
+                    )
                     continue
-                
+
                 info = Helpers.extract_article_info(article)
 
                 create_card = self.trello.create_card(
@@ -196,8 +208,8 @@ class Engine:
                     customFieldItems="customFieldItems=true",
                 ),
             }
-            trello_data = dispatch[argument]() 
-   
+            trello_data = dispatch[argument]()
+
             if not trello_data:
                 logging.error("Error: Failed to retrieve Trello data.")
                 return
@@ -220,8 +232,15 @@ class Engine:
         if cfg is None:
             logging.error("Invalid argument for field mapping: %s", argument)
             return
-            
-        cue_data = self.help.get_lists([self.NETT["get_lists"]["LEVERT"]])
+
+        if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
+            cue_data = []
+            for url in [self.NETT["get_lists"]["LEVERT"]]:
+                legacy_list = self.help.get_legacy_list(url)
+                if legacy_list:
+                    cue_data.extend(legacy_list)
+        else:
+            cue_data = self.help.get_lists([self.NETT["get_lists"]["LEVERT"]])
 
         logging.debug("Argument: %s", argument)
 
@@ -240,6 +259,9 @@ class Engine:
                     continue
 
                 info = Helpers.extract_article_info(result[0])
+
+                if info.publish_time and info.publish_time.strip():
+                    continue
 
                 new_name = getattr(info, cfg["name_attr"])
                 name_changed = new_name != original_name
@@ -288,8 +310,13 @@ class Engine:
 
         label_tags = (info.is_form, info.is_state)
         label_changed = self.trello.collect_labels(labels, label_tags)
+        is_published = self.APPROVED_LABEL in labels or self.PUBLISHED_LABEL in labels
 
-        if cue_id in cue_data and self.SUBMITTED_LABEL not in labels:
+        if (
+            cue_id in cue_data
+            and self.SUBMITTED_LABEL not in labels
+            and not is_published
+        ):
             labels.append(self.SUBMITTED_LABEL)
             label_changed = True
 
@@ -321,6 +348,7 @@ class Engine:
             labels: Etiketter på kortet.
             name_changed (Bool): Om navnet på kortet er endret.
         """
+
         publisert = custom_fields.get(self.CUSTOM_PUB_PAPIR, {}).get("date")
         label_tags = (info.is_form_papir, info.is_state_papir)
         label_changed = self.trello.collect_labels(labels, label_tags)

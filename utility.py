@@ -148,7 +148,7 @@ class TrelloManager:
         self.CUSTOM_NETT = Config.CUSTOM_NETT
         self.CUSTOM_PUB_PAPIR = Config.CUSTOM_PUB_PAPIR
         self.CUSTOM_PUB_NETT = Config.CUSTOM_PUB_NETT
-        #self.CUSTOM_LAST_NETT = Config.CUSTOM_LAST_NETT
+        self.CUSTOM_LAST_NETT = Config.CUSTOM_LAST_NETT
         self.CUSTOM_OPEN_NETT = Config.CUSTOM_OPEN_NETT
         self.NETT_BOARD = Config.NETT_BOARD
         self.PAPIR_BOARD = Config.PAPIR_BOARD
@@ -161,8 +161,6 @@ class TrelloManager:
 
         self.all_cards_nett = f"{self.BASE_URL}boards/{self.NETT_BOARD}/cards"
         self.all_cards_papir = f"{self.BASE_URL}boards/{self.PAPIR_BOARD}/cards"
-
-
 
     def get_cards(self, board, sort, **kwargs):
         """
@@ -194,7 +192,8 @@ class TrelloManager:
                 for entry in result
                 if isinstance(entry, dict) and "customFieldItems" in entry
                 for item in entry["customFieldItems"]
-                if isinstance(item, dict) and item.get("idCustomField") in allowed_fields
+                if isinstance(item, dict)
+                and item.get("idCustomField") in allowed_fields
             ]
         logging.debug("get_cards: %s", result)
         logging.info("Alle kort er hentet fra %s", board)
@@ -280,15 +279,9 @@ class TrelloManager:
 
             response = self.reqs.make_request("PUT", url, params=params)
             if response:
-                logging.info(
-                    "Trello card %s updated.",
-                    card_id
-                )
+                logging.info("Trello card %s updated.", card_id)
             else:
-                logging.error(
-                    "Failed to update Trello card %s.",
-                    card_id
-                )
+                logging.error("Failed to update Trello card %s.", card_id)
         except (req_exceptions.RequestException, ValueError, KeyError) as e:
             logging.error(
                 "Failed to update Trello card %s: %s",
@@ -397,6 +390,21 @@ class Helpers:
 
         return re.sub(r"%5B%5D", f"%5B{encoded_date_range}%5D", url, count=1)
 
+    def get_legacy_list(self, url):
+        """Retrieves a list of articles from the CUE lists of a group."""
+        auth = self.get_token()
+        headers = {"Authorization": f"{auth}"}
+        response = self.reqs.make_request("GET", url, headers=headers, timeout=10)
+        if response is None:
+            logging.error("Failed to fetch data from %s", url)
+            return []
+        response.raise_for_status()
+        matches = list(
+            set(match.group(1) for match in re.finditer(r"id=(.{7})", response.text))
+        )
+        logging.debug("GET_LIST: From %s List: %s", url, matches)
+        return matches
+
     def get_lists(self, lists):
         """
         Henter ut en liste med Cue-ID fra en gitt URL.
@@ -475,7 +483,7 @@ class Helpers:
                 return None
         else:
             content_str = response.decode("utf-8")
-        
+
         try:
             data = json.loads(content_str)
             token = data.get("cf.escenic.credentials", None)
