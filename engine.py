@@ -39,7 +39,6 @@ class Engine:
         self.NETT_BOARD = self.config.NETT_BOARD
         self.PAPIR_BOARD = self.config.PAPIR_BOARD
         self.AVIS = self.config.AVIS
-        self.PUBLISHED_OPEN = self.config.PUBLISHED_OPEN
         self.SUBMITTED_LABEL = self.config.SUBMITTED_LABEL
         self.APPROVED_LABEL = self.config.APPROVED_LABEL
         self.PUBLISHED_LABEL = self.config.PUBLISHED_LABEL
@@ -58,6 +57,10 @@ class Engine:
         self.INCLUDE_CHANGE = self.config.INCLUDE_CHANGE
         self.INCLUDE_GODKJENT_URL = self.config.INCLUDE_GODKJENT_URL
         self.INCLUDE_PUBLISERT_URL = self.config.INCLUDE_PUBLISERT_URL
+        self.INCLUDE_LEVERT_URL_PAPIR = self.config.INCLUDE_LEVERT_URL_PAPIR
+        self.INCLUDE_GODKJENT_URL_PAPIR = self.config.INCLUDE_GODKJENT_URL_PAPIR
+        self.INCLUDE_PUBLISERT_URL_PAPIR = self.config.INCLUDE_PUBLISERT_URL_PAPIR
+
         self.MODES = self.config.MODES
         self.FIELD_MAP = self.config.FIELD_MAP
         self.NETT = self.config.NETT
