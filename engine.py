@@ -83,6 +83,7 @@ class Engine:
             board = cfg["board"]
             innboks = cfg["innboks"]
             lists = []
+            plan = None
 
             if mode == "nett":
                 if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
@@ -99,6 +100,13 @@ class Engine:
                     )
                     return
 
+                plan = self.trello.get_cards(
+                    board,
+                    sort=True,
+                    fields="fields=id",
+                    customFieldItems="customFieldItems=true",
+                )
+
             elif mode == "papir":
                 lists = self.help.get_lists(cfg.get("get_lists", {}).values())
 
@@ -108,12 +116,12 @@ class Engine:
                     )
                     return
 
-            plan = self.trello.get_cards(
-                board,
-                sort=True,
-                fields="fields=id",
-                customFieldItems="customFieldItems=true",
-            )
+                plan = self.trello.get_cards(
+                    board,
+                    sort=True,
+                    fields="fields=id&filter=all",
+                    customFieldItems="customFieldItems=true",
+                )
 
             if not plan or not isinstance(plan, list):
                 logging.error(
@@ -218,7 +226,7 @@ class Engine:
                 "papir": lambda: self.trello.get_cards(
                     self.PAPIR_BOARD,
                     sort=False,
-                    fields="fields=name,desc,labels&filter=all",
+                    fields="fields=name,desc,labels",
                     customFieldItems="customFieldItems=true",
                 ),
             }
