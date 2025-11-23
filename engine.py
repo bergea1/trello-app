@@ -64,6 +64,7 @@ class Engine:
         self.MODES = self.config.MODES
         self.FIELD_MAP = self.config.FIELD_MAP
         self.NETT = self.config.NETT
+        self.PAPIR = self.config.PAPIR
 
     async def check_for_new(self, mode: str = "nett") -> None:
         """
@@ -82,20 +83,30 @@ class Engine:
             board = cfg["board"]
             innboks = cfg["innboks"]
 
-            if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
-                lists = []
-                for url in cfg.get("get_lists", {}).values():
-                    legacy_list = self.help.get_legacy_list(url)
-                    if legacy_list:
-                        lists.extend(legacy_list)
-            else:
+            if mode == "nett":
+                if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
+                    lists = []
+                    for url in cfg.get("get_lists", {}).values():
+                        legacy_list = self.help.get_legacy_list(url)
+                        if legacy_list:
+                            lists.extend(legacy_list)
+                else:
+                    lists = self.help.get_lists(cfg.get("get_lists", {}).values())
+
+                if lists is None:
+                    logging.error(
+                        "%s Error: Klarte ikke å hente artikler fra Cue.", mode.upper()
+                    )
+                    return
+
+            elif mode == "papir":
                 lists = self.help.get_lists(cfg.get("get_lists", {}).values())
 
-            if lists is None:
-                logging.error(
-                    "%s Error: Klarte ikke å hente artikler fra Cue.", mode.upper()
-                )
-                return
+                if lists is None:
+                    logging.error(
+                        "%s Error: Klarte ikke å hente artikler fra Cue.", mode.upper()
+                    )
+                    return
 
             plan = self.trello.get_cards(
                 board,
