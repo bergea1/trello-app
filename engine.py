@@ -36,32 +36,28 @@ class Engine:
         self.help = Helpers()
         self.config = Config()
 
-        config_attrs = [
-            "NETT_BOARD",
-            "PAPIR_BOARD",
-            "AVIS",
-            "PUBLISHED_OPEN",
-            "SUBMITTED_LABEL",
-            "APPROVED_LABEL",
-            "PAPIR_INNBOKS",
-            "NETT_IARBEID",
-            "IARBEID_URL",
-            "LEVERT_URL",
-            "GODKJENT_URL",
-            "PUBLISERT_URL",
-            "CUSTOM_NETT",
-            "CUSTOM_PAPIR",
-            "CUSTOM_LAST_NETT",
-            "CUSTOM_PUB_NETT",
-            "CUSTOM_PUB_PAPIR",
-            "CUSTOM_OPEN_NETT",
-            "MODES",
-            "FIELD_MAP",
-            "NETT",
-        ]
-
-        for attr in config_attrs:
-            setattr(self, attr.lower(), getattr(self.config, attr))
+        self.NETT_BOARD = self.config.NETT_BOARD
+        self.PAPIR_BOARD = self.config.PAPIR_BOARD
+        self.AVIS = self.config.AVIS
+        self.PUBLISHED_OPEN = self.config.PUBLISHED_OPEN
+        self.SUBMITTED_LABEL = self.config.SUBMITTED_LABEL
+        self.APPROVED_LABEL = self.config.APPROVED_LABEL
+        self.PAPIR_INNBOKS = self.config.PAPIR_INNBOKS
+        self.NETT_IARBEID = self.config.NETT_IARBEID
+        self.IARBEID_URL = self.config.IARBEID_URL
+        self.LEVERT_URL = self.config.LEVERT_URL
+        self.GODKJENT_URL = self.config.GODKJENT_URL
+        self.PUBLISERT_URL = self.config.PUBLISERT_URL
+        self.CUSTOM_NETT = self.config.CUSTOM_NETT
+        self.CUSTOM_PAPIR = self.config.CUSTOM_PAPIR
+        self.CUSTOM_LAST_NETT = self.config.CUSTOM_LAST_NETT
+        self.CUSTOM_PUB_NETT = self.config.CUSTOM_PUB_NETT
+        self.CUSTOM_PUB_PAPIR = self.config.CUSTOM_PUB_PAPIR
+        self.CUSTOM_OPEN_NETT = self.config.CUSTOM_OPEN_NETT
+        self.INCLUDE_CHANGE = self.config.INCLUDE_CHANGE
+        self.MODES = self.config.MODES
+        self.FIELD_MAP = self.config.FIELD_MAP
+        self.NETT = self.config.NETT
 
     async def check_for_new(self, mode: str = "nett") -> None:
         """
@@ -69,14 +65,14 @@ class Engine:
         Henter artikler fra CUE som har status: kladd, levert og godkjent.
         """
 
-        if mode not in self.modes:
+        if mode not in self.MODES:
             logging.error("Ugyldig mode: %s", mode)
             return
 
         logging.info("%s: Ser etter nye artikler", mode.upper())
 
         try:
-            cfg = self.modes[mode]
+            cfg = self.MODES[mode]
             board = cfg["board"]
             innboks = cfg["innboks"]
 
@@ -95,7 +91,7 @@ class Engine:
                 customFieldItems="customFieldItems=true",
             )
 
-            if not plan:
+            if not plan or not isinstance(plan, list):
                 logging.error(
                     "%s Error: Failed to fetch Trello board order.",
                     mode.upper(),
@@ -132,7 +128,7 @@ class Engine:
         """
 
         try:
-            new_articles = await self.gets.get_articles(articles=cards, avis=self.avis)
+            new_articles = await self.gets.get_articles(articles=cards, avis=self.AVIS)
 
             logging.debug(
                 "Antall nye artikler funnet: %d",
@@ -145,9 +141,14 @@ class Engine:
                 "Error: Failed to process articles due to type or value issue: %s",
                 str(e),
             )
+            articles = []
 
         for article in articles:
             try:
+                if not isinstance(article, dict):
+                    logging.warning("Skipping article: expected dict, got %s", type(article))
+                    continue
+                
                 info = Helpers.extract_article_info(article)
 
                 create_card = self.trello.create_card(
@@ -183,20 +184,20 @@ class Engine:
         try:
             dispatch = {
                 "nett": lambda: self.trello.get_cards(
-                    self.nett_board,
+                    self.NETT_BOARD,
                     sort=False,
                     fields="fields=name,desc,labels",
                     customFieldItems="customFieldItems=true",
                 ),
                 "papir": lambda: self.trello.get_cards(
-                    self.papir_board,
+                    self.PAPIR_BOARD,
                     sort=False,
                     fields="fields=name,desc,labels",
                     customFieldItems="customFieldItems=true",
                 ),
             }
-            trello_data = dispatch[argument]()
-
+            trello_data = dispatch[argument]() 
+   
             if not trello_data:
                 logging.error("Error: Failed to retrieve Trello data.")
                 return
@@ -215,8 +216,12 @@ class Engine:
             argument: "nett" eller "papir"
         """
 
-        cfg = self.field_map.get(argument)
-        cue_data = self.help.get_lists([self.nett["get_lists"]["LEVERT"]])
+        cfg = self.FIELD_MAP.get(argument)
+        if cfg is None:
+            logging.error("Invalid argument for field mapping: %s", argument)
+            return
+            
+        cue_data = self.help.get_lists([self.NETT["get_lists"]["LEVERT"]])
 
         logging.debug("Argument: %s", argument)
 
@@ -230,8 +235,8 @@ class Engine:
                 card_id = card["id"]
                 original_name = card["name"]
                 labels = [lbl["id"] for lbl in card.get("labels", [])]
-                result = await self.gets.get_articles(articles=cue_id, avis=self.avis)
-                if not isinstance(result, list) or not result:
+                result = await self.gets.get_articles(articles=cue_id, avis=self.AVIS)
+                if not isinstance(result, list) or not result or not result[0]:
                     continue
 
                 info = Helpers.extract_article_info(result[0])
@@ -276,16 +281,16 @@ class Engine:
             cue_data: Data fra CUE for sammenligning.
         """
 
-        sist_endret = custom_fields.get(self.custom_last_nett, {}).get("date")
-        checked = custom_fields.get(self.custom_open_nett, {}).get("checked")
-        publisert = custom_fields.get(self.custom_pub_nett, {}).get("date")
+        sist_endret = custom_fields.get(self.CUSTOM_LAST_NETT, {}).get("date")
+        checked = custom_fields.get(self.CUSTOM_OPEN_NETT, {}).get("checked")
+        publisert = custom_fields.get(self.CUSTOM_PUB_NETT, {}).get("date")
         is_open = "false" if checked == "true" else "true"
 
         label_tags = (info.is_form, info.is_state)
         label_changed = self.trello.collect_labels(labels, label_tags)
 
-        if cue_id in cue_data and self.submitted_label not in labels:
-            labels.append(self.submitted_label)
+        if cue_id in cue_data and self.SUBMITTED_LABEL not in labels:
+            labels.append(self.SUBMITTED_LABEL)
             label_changed = True
 
         if name_changed or label_changed:
@@ -295,15 +300,15 @@ class Engine:
 
         if info.publish_time not in (publisert, ""):
             self.trello.update_custom_card(
-                card_id, self.custom_pub_nett, date=info.publish_time
+                card_id, self.CUSTOM_PUB_NETT, date=info.publish_time
             )
-        if info.sist_endret not in (sist_endret, ""):
+        if self.INCLUDE_CHANGE == "True" and info.sist_endret not in (sist_endret, ""):
             self.trello.update_custom_card(
-                card_id, self.custom_last_nett, date=info.sist_endret
+                card_id, self.CUSTOM_LAST_NETT, date=info.sist_endret
             )
         if info.pluss != is_open:
             self.trello.update_custom_card(
-                card_id, self.custom_open_nett, is_open=info.pluss
+                card_id, self.CUSTOM_OPEN_NETT, is_open=info.pluss
             )
 
     def handle_papir(self, card_id, info, custom_fields, labels, name_changed):
@@ -316,7 +321,7 @@ class Engine:
             labels: Etiketter på kortet.
             name_changed (Bool): Om navnet på kortet er endret.
         """
-        publisert = custom_fields.get(self.custom_pub_papir, {}).get("date")
+        publisert = custom_fields.get(self.CUSTOM_PUB_PAPIR, {}).get("date")
         label_tags = (info.is_form_papir, info.is_state_papir)
         label_changed = self.trello.collect_labels(labels, label_tags)
 
@@ -330,5 +335,5 @@ class Engine:
 
         if info.publish_time not in (publisert, ""):
             self.trello.update_custom_card(
-                card_id, self.custom_pub_papir, date=info.publish_time
+                card_id, self.CUSTOM_PUB_PAPIR, date=info.publish_time
             )

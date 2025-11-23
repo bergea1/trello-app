@@ -140,31 +140,27 @@ class TrelloManager:
     def __init__(self):
         self.reqs = RequestsManager()
 
-        config_attrs = [
-            "API_KEY",
-            "API_TOKEN",
-            "BASE_URL",
-            "BASE_URL_CARDS",
-            "CUSTOM_PAPIR",
-            "CUSTOM_NETT",
-            "CUSTOM_PUB_PAPIR",
-            "CUSTOM_PUB_NETT",
-            "CUSTOM_LAST_NETT",
-            "CUSTOM_OPEN_NETT",
-            "NETT_BOARD",
-            "PAPIR_BOARD",
-            "PUBLISHED_OPEN",
-        ]
-        for attr in config_attrs:
-            setattr(self, attr.lower(), getattr(Config, attr))
+        self.API_KEY = Config.API_KEY
+        self.API_TOKEN = Config.API_TOKEN
+        self.BASE_URL = Config.BASE_URL
+        self.BASE_URL_CARDS = Config.BASE_URL_CARDS
+        self.CUSTOM_PAPIR = Config.CUSTOM_PAPIR
+        self.CUSTOM_NETT = Config.CUSTOM_NETT
+        self.CUSTOM_PUB_PAPIR = Config.CUSTOM_PUB_PAPIR
+        self.CUSTOM_PUB_NETT = Config.CUSTOM_PUB_NETT
+        #self.CUSTOM_LAST_NETT = Config.CUSTOM_LAST_NETT
+        self.CUSTOM_OPEN_NETT = Config.CUSTOM_OPEN_NETT
+        self.NETT_BOARD = Config.NETT_BOARD
+        self.PAPIR_BOARD = Config.PAPIR_BOARD
+        self.PUBLISHED_OPEN = Config.PUBLISHED_OPEN
 
         self.auth_params = {
-            "key": self.api_key,
-            "token": self.api_token,
+            "key": self.API_KEY,
+            "token": self.API_TOKEN,
         }
 
-        self.all_cards_nett = f"{self.base_url}boards/{self.nett_board}/cards"
-        self.all_cards_papir = f"{self.base_url}boards/{self.papir_board}/cards"
+        self.all_cards_nett = f"{self.BASE_URL}boards/{self.NETT_BOARD}/cards"
+        self.all_cards_papir = f"{self.BASE_URL}boards/{self.PAPIR_BOARD}/cards"
 
 
 
@@ -182,23 +178,23 @@ class TrelloManager:
         """
         if kwargs["fields"] and kwargs["customFieldItems"]:
             url = (
-                f"{self.base_url}boards/{board}/cards?"
+                f"{self.BASE_URL}boards/{board}/cards?"
                 f"{kwargs['fields']}&{kwargs['customFieldItems']}"
             )
         elif kwargs["fields"] and not kwargs["customFieldsItems"]:
-            url = f"{self.base_url}boards/{board}/cards?{kwargs['fields']}"
+            url = f"{self.BASE_URL}boards/{board}/cards?{kwargs['fields']}"
         else:
-            url = f"{self.base_url}boards/{board}/cards"
+            url = f"{self.BASE_URL}boards/{board}/cards"
         result = self.reqs.make_request("GET", url, params=self.auth_params)
 
-        if sort:
-            allowed_fields = [self.custom_papir, self.custom_nett]
+        if sort and result and isinstance(result, list):
+            allowed_fields = [self.CUSTOM_PAPIR, self.CUSTOM_NETT]
             result = [
                 item["value"]["text"]
                 for entry in result
-                if "customFieldItems" in entry
+                if isinstance(entry, dict) and "customFieldItems" in entry
                 for item in entry["customFieldItems"]
-                if item.get("idCustomField") in allowed_fields
+                if isinstance(item, dict) and item.get("idCustomField") in allowed_fields
             ]
         logging.debug("get_cards: %s", result)
         logging.info("Alle kort er hentet fra %s", board)
@@ -247,8 +243,8 @@ class TrelloManager:
                 case {"idLabels": idlabels}:
                     params["idLabels"] = idlabels
             params.update(kwargs)
-            card = self.reqs.make_request("POST", self.base_url_cards, params=params)
-            if card:
+            card = self.reqs.make_request("POST", self.BASE_URL_CARDS, params=params)
+            if card and isinstance(card, dict):
                 logging.info("Kort %s er opprettet i Trello.", card["desc"])
             return card
         except (req_exceptions.RequestException, ValueError, KeyError) as e:
@@ -272,7 +268,7 @@ class TrelloManager:
         """
 
         try:
-            url = f"{self.base_url}cards/{card_id}"
+            url = f"{self.BASE_URL}cards/{card_id}"
             params = {**self.auth_params, **{"id": card_id, **kwargs}}
 
             if "idLabels" in kwargs:
@@ -282,7 +278,17 @@ class TrelloManager:
             if "desc" in kwargs:
                 params["desc"] = kwargs["desc"]
 
-            card = self.reqs.make_request("PUT", url, params=params)
+            response = self.reqs.make_request("PUT", url, params=params)
+            if response:
+                logging.info(
+                    "Trello card %s updated.",
+                    card_id
+                )
+            else:
+                logging.error(
+                    "Failed to update Trello card %s.",
+                    card_id
+                )
         except (req_exceptions.RequestException, ValueError, KeyError) as e:
             logging.error(
                 "Failed to update Trello card %s: %s",
@@ -291,14 +297,7 @@ class TrelloManager:
                 exc_info=True,
             )
             return None
-        if not card:
-            logging.warning(
-                "No response when updating card %s with %r", card_id, params
-            )
-            return None
-        logging.info("Kort: %s oppdatert.", card_id)
-        logging.debug("Kort: %s oppdatert.", card_id)
-        return card
+        return response
 
     def update_custom_card(self, card_id, custom_id, **kwargs):
         """
@@ -311,7 +310,7 @@ class TrelloManager:
         """
 
         try:
-            url = f"{self.base_url}cards/{card_id}/customField/{custom_id}/item"
+            url = f"{self.BASE_URL}cards/{card_id}/customField/{custom_id}/item"
             params = self.auth_params
 
             if "is_open" in kwargs:
@@ -465,11 +464,26 @@ class Helpers:
         Bruker get_s3_file for å hente filen.
         """
         response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
-        content_str = response.decode("utf-8")
-        data = json.loads(content_str)
-        token = data.get("cf.escenic.credentials", None)
-        logging.debug("GET_TOKEN: Token: %s", token)
-        return token
+        if isinstance(response, dict):
+            if "error" in response:
+                logging.error("Error fetching token: %s", response["error"])
+                return None
+            if "body" in response:
+                content_str = response["body"]
+            else:
+                logging.error("Unexpected response format: %s", response)
+                return None
+        else:
+            content_str = response.decode("utf-8")
+        
+        try:
+            data = json.loads(content_str)
+            token = data.get("cf.escenic.credentials", None)
+            logging.debug("GET_TOKEN: Token: %s", token)
+            return token
+        except json.JSONDecodeError as e:
+            logging.error("Error parsing token JSON: %s", e)
+            return None
 
     @staticmethod
     def get_custom_fields(card):

@@ -19,7 +19,7 @@ else:
 
 def str_to_bool(value):
     """
-    Returnerer en bool fra string.
+    Konverterer til bool.
     """
     if isinstance(value, bool):
         return value
@@ -51,6 +51,7 @@ class Config:
     RUN_NETT = str_to_bool(os.getenv("RUN_NETT", "True"))
     RUN_PAPIR = str_to_bool(os.getenv("RUN_PAPIR", "False"))
     MODE = os.getenv("MODE", "dev")
+    INCLUDE_CHANGE = str_to_bool(os.getenv("INCLUDE_CHANGE", "False"))
 
     ## BUCKET VARIABLES
     SPACE_BUCKET = get_secrets("space_bucket") or os.getenv("SPACE_BUCKET")
