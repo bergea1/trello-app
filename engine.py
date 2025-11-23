@@ -82,10 +82,10 @@ class Engine:
             cfg = self.MODES[mode]
             board = cfg["board"]
             innboks = cfg["innboks"]
+            lists = []
 
             if mode == "nett":
                 if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
-                    lists = []
                     for url in cfg.get("get_lists", {}).values():
                         legacy_list = self.help.get_legacy_list(url)
                         if legacy_list:
@@ -179,7 +179,7 @@ class Engine:
 
                 create_card = self.trello.create_card(
                     innboks,
-                    name=info.overskrift,
+                    name=info.overskrift_lang,
                     desc=info.card_id,
                     idlabels=[info.is_form],
                 )
