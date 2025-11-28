@@ -29,6 +29,19 @@ def signal_handler(signum, _):
     shutdown_flag = True
 
 
+async def interruptible_sleep(seconds: int) -> bool:
+    """
+    Sleep for specified seconds, checking shutdown_flag every second.
+    Returns True if shutdown was requested, False otherwise.
+    Provides better code organization by centralizing the sleep pattern.
+    """
+    for _ in range(seconds):
+        if shutdown_flag:
+            return True
+        await asyncio.sleep(1)
+    return False
+
+
 async def run_nett(engine):
     """Kjører i loop for nett"""
     logging.info("🌐 NETT monitoring started - checking every 60 seconds")
@@ -42,10 +55,8 @@ async def run_nett(engine):
                 break
 
             logging.info("⏱️  NETT: Waiting 60 seconds before checking for changes...")
-            for _ in range(60):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(60):
+                break
 
             if shutdown_flag:
                 break
@@ -56,17 +67,13 @@ async def run_nett(engine):
         except (ConnectionError, asyncio.TimeoutError) as e:
             logging.error("🚨 NETT Connection Error: %s", e)
             logging.info("⏰ Retrying in 60 seconds...")
-            for _ in range(60):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(60):
+                break
         except (ValueError, RuntimeError, KeyError) as e:
             logging.error("💥 NETT Unexpected Error: %s", e, exc_info=True)
             logging.info("⏰ Retrying in 60 seconds...")
-            for _ in range(60):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(60):
+                break
 
     logging.info("🌐 NETT monitoring stopped")
 
@@ -84,10 +91,8 @@ async def run_papir(engine):
                 break
 
             logging.info("⏱️  PAPIR: Waiting 180 seconds before checking for changes...")
-            for _ in range(180):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(180):
+                break
 
             if shutdown_flag:
                 break
@@ -98,17 +103,13 @@ async def run_papir(engine):
         except (ConnectionError, asyncio.TimeoutError) as e:
             logging.error("🚨 PAPIR Connection Error: %s", e)
             logging.info("⏰ Retrying in 60 seconds...")
-            for _ in range(60):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(60):
+                break
         except (ValueError, RuntimeError, KeyError) as e:
             logging.error("💥 PAPIR Unexpected Error: %s", e, exc_info=True)
             logging.info("⏰ Retrying in 60 seconds...")
-            for _ in range(60):
-                if shutdown_flag:
-                    break
-                await asyncio.sleep(1)
+            if await interruptible_sleep(60):
+                break
 
     logging.info("📰 PAPIR monitoring stopped")
 

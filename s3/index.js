@@ -15,6 +15,18 @@ const requestHeaders = {
   Referer: 'https://www.google.com/',
 };
 
+// Helper function moved outside to avoid recreation on each call
+const streamToString = (stream) =>
+  new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    stream.on("error", reject);
+  });
+
+// Helper function for async sleep - avoids creating new Promise on each call
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 (async () => {
   const config = await getConfig();
 
@@ -36,15 +48,6 @@ const requestHeaders = {
       });
 
       const { Body } = await s3Client.send(command);
-
-      const streamToString = (stream) =>
-        new Promise((resolve, reject) => {
-          const chunks = [];
-          stream.on("data", (chunk) => chunks.push(chunk));
-          stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-          stream.on("error", reject);
-        });
-
       return await streamToString(Body);
     } catch (err) {
       console.error("Error reading file from S3:", err);
@@ -104,7 +107,7 @@ const requestHeaders = {
 
       while (true) {
         await refreshAndGetToken(page);
-        await new Promise(resolve => setTimeout(resolve, REFRESH_INTERVAL));
+        await sleep(REFRESH_INTERVAL);
       }
 
     } catch (error) {
@@ -119,7 +122,7 @@ const requestHeaders = {
 
   async function checkLogin(page) {
     while (true) {
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await sleep(10000);
       await page.goto(config.TARGET_URL, { waitUntil: 'load' });
       if (page.url().includes(config.TARGET_URL)) {
         console.log("Logged in successfully! Retrieving token...");
@@ -138,15 +141,16 @@ const requestHeaders = {
       console.log("Refreshing page...");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await sleep(2000);
 
+      // Use Object.fromEntries with Array.from for more efficient iteration
       const localStorageData = await page.evaluate(() => {
-        const data = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          data[key] = localStorage.getItem(key);
-        }
-        return data;
+        return Object.fromEntries(
+          Array.from({ length: localStorage.length }, (_, i) => {
+            const key = localStorage.key(i);
+            return [key, localStorage.getItem(key)];
+          })
+        );
       });
 
       await fs.writeFile('./localStorage.json', JSON.stringify(localStorageData, null, 2), 'utf-8');
@@ -167,7 +171,7 @@ const requestHeaders = {
       }
 
       console.log("Restarting session in 10 seconds...");
-      await new Promise(res => setTimeout(res, 10000));
+      await sleep(10000);
     }
   }
 
