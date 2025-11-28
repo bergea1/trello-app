@@ -601,13 +601,13 @@ class Helpers:
         source_list: List[Any], reference_list: List[Any]
     ) -> List[Any]:
         """
-        Sammenligner lister og returnerer elementer i
-        den første listen som ikke finnes i den andre.
+        Compares two lists and returns elements from the source list
+        that are not found in the reference list.
         Args:
-            source_list (List[Any]): Første liste.
-            reference_list (List[Any]): Andre liste.
+            source_list (List[Any]): The list to compare from (items to check).
+            reference_list (List[Any]): The list to compare against (existing items).
         Returns:
-            List[Any]: Elementer i den første listen som ikke finnes i den andre.
+            List[Any]: Elements in source_list that are not in reference_list.
         """
 
         if source_list is None or reference_list is None:
