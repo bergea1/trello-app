@@ -46,6 +46,14 @@ ArticleInfo = namedtuple(
     ],
 )
 
+# Pre-compiled regex patterns for improved performance
+# These patterns are used frequently and compiling them once avoids recompilation overhead
+RE_LEGACY_ID = re.compile(r"id=(.{7})")
+RE_URN_ID = re.compile(r"<id>urn:[^:]+:(\d{7})</id>")
+RE_SLUG_ID = re.compile(r"(\d{7})$")
+RE_PARAGRAPH = re.compile(r"<p>(.*?)</p>", re.DOTALL)
+RE_IMG_SRC = re.compile(r"<img src=")
+
 
 # pylint: disable=too-few-public-methods
 class RequestsManager:
@@ -207,16 +215,14 @@ class TrelloManager:
         Returns:
             bool: True hvis labels ble endret, ellers False.
         """
-
         label_changed = False
-        labels_list = (
-            labels
-            if isinstance(labels, list)
-            else (list(labels) if labels is not None else [])
-        )
+        # Ensure labels is a list (most common case) to avoid repeated checks
+        if not isinstance(labels, list):
+            labels = list(labels) if labels is not None else []
+
         for tag in tag_fields:
-            if tag and tag not in labels_list:
-                labels_list.append(tag)
+            if tag and tag not in labels:
+                labels.append(tag)
                 label_changed = True
         return label_changed
 
@@ -267,14 +273,9 @@ class TrelloManager:
 
         try:
             url = f"{self.BASE_URL}cards/{card_id}"
-            params = {**self.auth_params, **{"id": card_id, **kwargs}}
-
-            if "idLabels" in kwargs:
-                params["idLabels"] = kwargs["idLabels"]
-            if "name" in kwargs:
-                params["name"] = kwargs["name"]
-            if "desc" in kwargs:
-                params["desc"] = kwargs["desc"]
+            # Merge auth params with kwargs directly - kwargs already contains
+            # all the needed parameters (idLabels, name, desc, etc.)
+            params = {**self.auth_params, "id": card_id, **kwargs}
 
             response = self.reqs.make_request("PUT", url, params=params)
             if response:
@@ -348,6 +349,11 @@ class Helpers:
     Hjelpe-funksjoner for å håndtere S3 og lister.
     """
 
+    # Class-level cache for token to avoid repeated S3 calls
+    _token_cache = None
+    _token_cache_time = None
+    _TOKEN_CACHE_TTL = 300  # Cache token for 5 minutes
+
     def __init__(self):
         self.session = boto3.session.Session()
         self.reqs = RequestsManager()
@@ -397,9 +403,14 @@ class Helpers:
         if response is None:
             logging.error("Failed to fetch data from %s", url)
             return []
-        response.raise_for_status()
+        # Check if response is a Response object (not already parsed)
+        if hasattr(response, "text"):
+            response_text = response.text
+        else:
+            response_text = str(response)
+        # Use pre-compiled regex for better performance
         matches = list(
-            set(match.group(1) for match in re.finditer(r"id=(.{7})", response.text))
+            set(match.group(1) for match in RE_LEGACY_ID.finditer(response_text))
         )
         logging.debug("GET_LIST: From %s List: %s", url, matches)
         return matches
@@ -443,12 +454,11 @@ class Helpers:
                         # It's already parsed data (dict), convert back to text for regex
                         response_text = str(response)
 
+                    # Use pre-compiled regex for better performance
                     matched = list(
                         set(
                             match.group(1)
-                            for match in re.finditer(
-                                r"<id>urn:[^:]+:(\d{7})</id>", response_text
-                            )
+                            for match in RE_URN_ID.finditer(response_text)
                         )
                     )
                     logging.debug("GET_LIST: From %s List: %s", url, matched)
@@ -508,8 +518,9 @@ class Helpers:
             if "metadata" in item and "slug" in item["metadata"]
         ]
 
+        # Use pre-compiled regex for better performance
         ids = [
-            match.group(1) for slug in slugs if (match := re.search(r"(\d{7})$", slug))
+            match.group(1) for slug in slugs if (match := RE_SLUG_ID.search(slug))
         ]
         logging.debug("SEARCHER: Fant %s", ids)
         return ids
@@ -518,7 +529,18 @@ class Helpers:
         """
         Henter ut en fil fra S3-bucket.
         Bruker get_s3_file for å hente filen.
+        Uses caching to avoid repeated S3 calls within the TTL period.
         """
+        # Check if we have a valid cached token
+        current_time = time.time()
+        if (
+            Helpers._token_cache is not None
+            and Helpers._token_cache_time is not None
+            and (current_time - Helpers._token_cache_time) < Helpers._TOKEN_CACHE_TTL
+        ):
+            logging.debug("GET_TOKEN: Using cached token")
+            return Helpers._token_cache
+
         response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
         if isinstance(response, dict):
             if "error" in response:
@@ -535,7 +557,10 @@ class Helpers:
         try:
             data = json.loads(content_str)
             token = data.get("cf.escenic.credentials", None)
-            logging.debug("GET_TOKEN: Token: %s", token)
+            # Cache the token
+            Helpers._token_cache = token
+            Helpers._token_cache_time = current_time
+            logging.debug("GET_TOKEN: Token fetched and cached: %s", token)
             return token
         except json.JSONDecodeError as e:
             logging.error("Error parsing token JSON: %s", e)
@@ -677,7 +702,8 @@ class GetArticleDetails:
 
             def count_chars() -> int:
                 """Counts the number of characters in the article."""
-                paragraphs = re.findall(r"<p>(.*?)</p>", data, re.DOTALL)
+                # Use pre-compiled regex for better performance
+                paragraphs = RE_PARAGRAPH.findall(data)
                 return sum(len(p) for p in paragraphs)
 
             extracted_data = {
@@ -692,7 +718,8 @@ class GetArticleDetails:
                 "status": ext_regex(r'<vaext:state name="(.*?)"/>'),
                 "publish_time": ext_regex(r"<published>(.*?)</published>"),
                 "character_count": count_chars(),
-                "image_count": len(re.findall(r"<img src=", data)),
+                # Use pre-compiled regex for better performance
+                "image_count": len(RE_IMG_SRC.findall(data)),
             }
             logging.debug("GETARTICLE: Fetched: %s", extracted_data)
             return extracted_data
