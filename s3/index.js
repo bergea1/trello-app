@@ -8,15 +8,15 @@ import { getConfig } from './config.js';
 dotenv.config();
 puppeteer.use(StealthPlugin());
 
-const REFRESH_INTERVAL = 5 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
-const requestHeaders = {
+const DEFAULT_HTTP_HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
   Referer: 'https://www.google.com/',
 };
 
 // Helper function moved outside to avoid recreation on each call
-const streamToString = (stream) =>
+const convertStreamToString = (stream) =>
   new Promise((resolve, reject) => {
     const chunks = [];
     stream.on("data", (chunk) => chunks.push(chunk));
@@ -25,7 +25,7 @@ const streamToString = (stream) =>
   });
 
 // Helper function for async sleep - avoids creating new Promise on each call
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const waitForMilliseconds = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 (async () => {
   const config = await getConfig();
@@ -48,7 +48,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       });
 
       const { Body } = await s3Client.send(command);
-      return await streamToString(Body);
+      return await convertStreamToString(Body);
     } catch (err) {
       console.error("Error reading file from S3:", err);
     }
@@ -87,7 +87,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       const page = await browser.newPage();
       await page.setDefaultNavigationTimeout(0);
       await page.setDefaultTimeout(0);
-      await page.setExtraHTTPHeaders({ ...requestHeaders });
+      await page.setExtraHTTPHeaders({ ...DEFAULT_HTTP_HEADERS });
       await page.setViewport({ width: 1200, height: 692 });
       await page.goto(config.WEBSITE_URL, { waitUntil: 'load' });
 
@@ -107,7 +107,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
       while (true) {
         await refreshAndGetToken(page);
-        await sleep(REFRESH_INTERVAL);
+        await waitForMilliseconds(REFRESH_INTERVAL_MS);
       }
 
     } catch (error) {
@@ -122,7 +122,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   async function checkLogin(page) {
     while (true) {
-      await sleep(10000);
+      await waitForMilliseconds(10000);
       await page.goto(config.TARGET_URL, { waitUntil: 'load' });
       if (page.url().includes(config.TARGET_URL)) {
         console.log("Logged in successfully! Retrieving token...");
@@ -141,7 +141,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       console.log("Refreshing page...");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await sleep(2000);
+      await waitForMilliseconds(2000);
 
       // Use Object.fromEntries with Array.from for more efficient iteration
       const localStorageData = await page.evaluate(() => {
@@ -171,7 +171,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       }
 
       console.log("Restarting session in 10 seconds...");
-      await sleep(10000);
+      await waitForMilliseconds(10000);
     }
   }
 

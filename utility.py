@@ -147,7 +147,7 @@ class TrelloManager:
     """
 
     def __init__(self):
-        self.reqs = RequestsManager()
+        self.request_manager = RequestsManager()
 
         self.API_KEY = Config.API_KEY
         self.API_TOKEN = Config.API_TOKEN
@@ -191,7 +191,7 @@ class TrelloManager:
             url = f"{self.BASE_URL}boards/{board}/cards?{kwargs['fields']}"
         else:
             url = f"{self.BASE_URL}boards/{board}/cards"
-        result = self.reqs.make_request("GET", url, params=self.auth_params)
+        result = self.request_manager.make_request("GET", url, params=self.auth_params)
 
         if sort and result and isinstance(result, list):
             allowed_fields = [self.CUSTOM_PAPIR, self.CUSTOM_NETT]
@@ -251,7 +251,7 @@ class TrelloManager:
                 case {"idLabels": idlabels}:
                     params["idLabels"] = idlabels
             params.update(kwargs)
-            card = self.reqs.make_request("POST", self.BASE_URL_CARDS, params=params)
+            card = self.request_manager.make_request("POST", self.BASE_URL_CARDS, params=params)
             if card and isinstance(card, dict):
                 logging.info("Kort %s er opprettet i Trello.", card["desc"])
             return card
@@ -281,7 +281,7 @@ class TrelloManager:
             # all the needed parameters (idLabels, name, desc, etc.)
             params = {**self.auth_params, "id": card_id, **kwargs}
 
-            response = self.reqs.make_request("PUT", url, params=params)
+            response = self.request_manager.make_request("PUT", url, params=params)
             if response:
                 logging.info("Trello card %s updated.", card_id)
             else:
@@ -322,7 +322,7 @@ class TrelloManager:
                     "Invalid custom field type. Expected 'is_open' or 'date'."
                 )
 
-            response = self.reqs.make_request("PUT", url, params=params, json=payload)
+            response = self.request_manager.make_request("PUT", url, params=params, json=payload)
 
             if response:
                 logging.info(
@@ -361,7 +361,7 @@ class Helpers:
 
     def __init__(self):
         self.session = boto3.session.Session()
-        self.reqs = RequestsManager()
+        self.request_manager = RequestsManager()
         self.client = self.session.client(
             "s3",
             region_name=Config.SPACE_REGION,
@@ -404,7 +404,7 @@ class Helpers:
         """Retrieves a list of articles from the CUE lists of a group."""
         auth = self.get_token()
         headers = {"Authorization": f"{auth}"}
-        response = self.reqs.make_request("GET", url, headers=headers, timeout=10)
+        response = self.request_manager.make_request("GET", url, headers=headers, timeout=10)
         if response is None:
             logging.error("Failed to fetch data from %s", url)
             return []
@@ -443,7 +443,7 @@ class Helpers:
             for url in lists:
                 try:
                     _url = self.build_url(url)
-                    response = self.reqs.make_request(
+                    response = self.request_manager.make_request(
                         "GET", _url, headers=headers, timeout=10
                     )
 
@@ -505,7 +505,7 @@ class Helpers:
             logging.error("PUBLISHED_OPEN URL is not set.")
             return
 
-        response = self.reqs.make_request("GET", url)
+        response = self.request_manager.make_request("GET", url)
 
         if not response:
             logging.error("Klarte ikke å hente artikler.")
@@ -597,27 +597,29 @@ class Helpers:
         }
 
     @staticmethod
-    def compare_lists(x: List[Any], y: List[Any]) -> List[Any]:
+    def compare_lists(
+        source_list: List[Any], reference_list: List[Any]
+    ) -> List[Any]:
         """
-        Sammenligner lister og returnerer elementer i
-        den første listen som ikke finnes i den andre.
+        Compares two lists and returns elements from the source list
+        that are not found in the reference list.
         Args:
-            x (List[Any]): Første liste.
-            y (List[Any]): Andre liste.
+            source_list (List[Any]): The list to compare from (items to check).
+            reference_list (List[Any]): The list to compare against (existing items).
         Returns:
-            List[Any]: Elementer i den første listen som ikke finnes i den andre.
+            List[Any]: Elements in source_list that are not in reference_list.
         """
 
-        if x is None or y is None:
+        if source_list is None or reference_list is None:
             raise ValueError("Both input lists must be provided and cannot be None")
 
         try:
-            set1, set2 = set(x), set(y)
+            source_set, reference_set = set(source_list), set(reference_list)
         except TypeError as e:
             raise TypeError(
                 f"Elements must be hashable to use set comparison: {e}"
             ) from e
-        result = list(set1 - set2)
+        result = list(source_set - reference_set)
         logging.debug("COMPARE_LISTS: %s", result)
         return result
 
@@ -672,7 +674,7 @@ class GetArticleDetails:
     """
 
     def __init__(self):
-        self.reqs = RequestsManager()
+        self.request_manager = RequestsManager()
 
     async def get_article(
         self, article: str, cue_open_search: str, avis: str, results: list
@@ -682,7 +684,7 @@ class GetArticleDetails:
         loop = asyncio.get_running_loop()
         try:
             response = await loop.run_in_executor(
-                None, self.reqs.make_request, "GET", url
+                None, self.request_manager.make_request, "GET", url
             )
 
             if response is None:
@@ -712,7 +714,7 @@ class GetArticleDetails:
                 )
                 return match.group(1) if match else ""
 
-            def ext_regex(pattern: str) -> str:
+            def extract_with_regex(pattern: str) -> str:
                 """Extracts a value using a regular expression pattern."""
                 match = re.search(pattern, data)
                 return match.group(1) if match else ""
@@ -726,14 +728,18 @@ class GetArticleDetails:
             extracted_data = {
                 "article": article,
                 "title": find_value("title"),
-                "forfatter": ext_regex(r"<author>\s*<name>(.*?)</name>"),
-                "model_last_word": ext_regex(r'<vdf:payload[^>]+model="[^"]+/(\w+)"'),
+                "forfatter": extract_with_regex(r"<author>\s*<name>(.*?)</name>"),
+                "model_last_word": extract_with_regex(
+                    r'<vdf:payload[^>]+model="[^"]+/(\w+)"'
+                ),
                 "lastModified": find_value("lastModifiedDate"),
                 "friflyt": find_value("noFreeFlow"),
                 "is_open": find_value("isPremium"),
-                "oppsummering": ext_regex(r'<summary type="text">(.*?)</summary>'),
-                "status": ext_regex(r'<vaext:state name="(.*?)"/>'),
-                "publish_time": ext_regex(r"<published>(.*?)</published>"),
+                "oppsummering": extract_with_regex(
+                    r'<summary type="text">(.*?)</summary>'
+                ),
+                "status": extract_with_regex(r'<vaext:state name="(.*?)"/>'),
+                "publish_time": extract_with_regex(r"<published>(.*?)</published>"),
                 "character_count": count_chars(),
                 # Use pre-compiled regex for better performance
                 "image_count": len(RE_IMG_SRC.findall(data)),
