@@ -30,10 +30,10 @@ class Engine:
     logging.info("Starter app..")
 
     def __init__(self):
-        self.reqs = RequestsManager()
-        self.gets = GetArticleDetails()
-        self.trello = TrelloManager()
-        self.help = Helpers()
+        self.request_manager = RequestsManager()
+        self.article_fetcher = GetArticleDetails()
+        self.trello_manager = TrelloManager()
+        self.helpers = Helpers()
         self.config = Config()
 
         self.NETT_BOARD = self.config.NETT_BOARD
@@ -89,11 +89,11 @@ class Engine:
             if mode == "nett":
                 if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
                     for url in cfg.get("get_lists", {}).values():
-                        legacy_list = self.help.get_legacy_list(url)
+                        legacy_list = self.helpers.get_legacy_list(url)
                         if legacy_list:
                             lists.extend(legacy_list)
                 else:
-                    lists = self.help.get_lists(cfg.get("get_lists", {}).values())
+                    lists = self.helpers.get_lists(cfg.get("get_lists", {}).values())
 
                 if lists is None:
                     logging.error(
@@ -101,7 +101,7 @@ class Engine:
                     )
                     return
 
-                plan = self.trello.get_cards(
+                plan = self.trello_manager.get_cards(
                     board,
                     sort=True,
                     fields="fields=id",
@@ -110,8 +110,8 @@ class Engine:
 
             elif mode == "papir":
 
-                searcher_lists = await self.help.searcher()
-                get_lists_result = self.help.get_lists(
+                searcher_lists = await self.helpers.searcher()
+                get_lists_result = self.helpers.get_lists(
                     cfg.get("get_lists", {}).values()
                 )
 
@@ -127,7 +127,7 @@ class Engine:
                     )
                     return
 
-                plan = self.trello.get_cards(
+                plan = self.trello_manager.get_cards(
                     board,
                     sort=True,
                     fields="fields=id&filter=all",
@@ -148,7 +148,7 @@ class Engine:
                 board,
             )
 
-            new_articles = self.help.compare_lists(lists, plan)
+            new_articles = self.helpers.compare_lists(lists, plan)
 
             logging.info(
                 "%s: Antall nye artikler funnet: %d", mode.upper(), len(new_articles)
@@ -171,7 +171,7 @@ class Engine:
         """
 
         try:
-            new_articles = await self.gets.get_articles(articles=cards, avis=self.AVIS)
+            new_articles = await self.article_fetcher.get_articles(articles=cards, avis=self.AVIS)
 
             logging.debug(
                 "Antall nye artikler funnet: %d",
@@ -196,7 +196,7 @@ class Engine:
 
                 info = Helpers.extract_article_info(article)
 
-                create_card = self.trello.create_card(
+                create_card = self.trello_manager.create_card(
                     innboks,
                     name=info.overskrift,
                     desc=info.card_id,
@@ -228,13 +228,13 @@ class Engine:
 
         try:
             dispatch = {
-                "nett": lambda: self.trello.get_cards(
+                "nett": lambda: self.trello_manager.get_cards(
                     self.NETT_BOARD,
                     sort=False,
                     fields="fields=name,desc,labels",
                     customFieldItems="customFieldItems=true",
                 ),
-                "papir": lambda: self.trello.get_cards(
+                "papir": lambda: self.trello_manager.get_cards(
                     self.PAPIR_BOARD,
                     sort=False,
                     fields="fields=name,desc,labels",
@@ -269,17 +269,17 @@ class Engine:
         if not self.INCLUDE_GODKJENT_URL and not self.INCLUDE_PUBLISERT_URL:
             cue_data = []
             for url in [self.NETT["get_lists"]["LEVERT"]]:
-                legacy_list = self.help.get_legacy_list(url)
+                legacy_list = self.helpers.get_legacy_list(url)
                 if legacy_list:
                     cue_data.extend(legacy_list)
         else:
-            cue_data = self.help.get_lists([self.NETT["get_lists"]["LEVERT"]])
+            cue_data = self.helpers.get_lists([self.NETT["get_lists"]["LEVERT"]])
 
         logging.debug("Argument: %s", argument)
 
         for card in trello_data:
             try:
-                custom_fields = self.help.get_custom_fields(card)
+                custom_fields = self.helpers.get_custom_fields(card)
                 cue_id = custom_fields.get(cfg["cue-id"], {}).get("text")
                 if not cue_id or len(cue_id) != 7:
                     continue
@@ -289,7 +289,7 @@ class Engine:
                 card_id = card["id"]
                 original_name = card["name"]
                 labels = [lbl["id"] for lbl in card.get("labels", [])]
-                result = await self.gets.get_articles(articles=cue_id, avis=self.AVIS)
+                result = await self.article_fetcher.get_articles(articles=cue_id, avis=self.AVIS)
                 if not isinstance(result, list) or not result or not result[0]:
                     continue
 
@@ -344,7 +344,7 @@ class Engine:
         is_open = "false" if checked == "true" else "true"
 
         label_tags = (info.is_form, info.is_state)
-        label_changed = self.trello.collect_labels(labels, label_tags)
+        label_changed = self.trello_manager.collect_labels(labels, label_tags)
         is_published = self.APPROVED_LABEL in labels or self.PUBLISHED_LABEL in labels
 
         if (
@@ -356,20 +356,20 @@ class Engine:
             label_changed = True
 
         if name_changed or label_changed:
-            self.trello.update_card(
+            self.trello_manager.update_card(
                 card_id, name=info.overskrift, desc=info.oppsummering, idLabels=labels
             )
 
         if info.publish_time not in (publisert, ""):
-            self.trello.update_custom_card(
+            self.trello_manager.update_custom_card(
                 card_id, self.CUSTOM_PUB_NETT, date=info.publish_time
             )
         if self.INCLUDE_CHANGE == "True" and info.sist_endret not in (sist_endret, ""):
-            self.trello.update_custom_card(
+            self.trello_manager.update_custom_card(
                 card_id, self.CUSTOM_LAST_NETT, date=info.sist_endret
             )
         if info.pluss != is_open:
-            self.trello.update_custom_card(
+            self.trello_manager.update_custom_card(
                 card_id, self.CUSTOM_OPEN_NETT, is_open=info.pluss
             )
 
@@ -386,10 +386,10 @@ class Engine:
 
         publisert = custom_fields.get(self.CUSTOM_PUB_PAPIR, {}).get("date")
         label_tags = (info.is_form_papir, info.is_state_papir)
-        label_changed = self.trello.collect_labels(labels, label_tags)
+        label_changed = self.trello_manager.collect_labels(labels, label_tags)
 
         if name_changed or label_changed:
-            self.trello.update_card(
+            self.trello_manager.update_card(
                 card_id,
                 name=info.overskrift_lang,
                 desc=info.oppsummering,
@@ -397,6 +397,6 @@ class Engine:
             )
 
         if info.publish_time not in (publisert, ""):
-            self.trello.update_custom_card(
+            self.trello_manager.update_custom_card(
                 card_id, self.CUSTOM_PUB_PAPIR, date=info.publish_time
             )
