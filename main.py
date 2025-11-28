@@ -33,7 +33,7 @@ async def interruptible_sleep(seconds: int) -> bool:
     """
     Sleep for specified seconds, checking shutdown_flag every second.
     Returns True if shutdown was requested, False otherwise.
-    More efficient than individual 1-second sleeps for long waits.
+    Provides better code organization by centralizing the sleep pattern.
     """
     for _ in range(seconds):
         if shutdown_flag:

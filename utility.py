@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from collections import Counter, namedtuple
 from datetime import datetime, timedelta, timezone
@@ -216,14 +217,17 @@ class TrelloManager:
             bool: True hvis labels ble endret, ellers False.
         """
         label_changed = False
-        # Ensure labels is a list (most common case) to avoid repeated checks
-        if not isinstance(labels, list):
-            labels = list(labels) if labels is not None else []
+        # Create a local copy to avoid modifying the input parameter unexpectedly
+        labels_list = list(labels) if labels is not None else []
 
         for tag in tag_fields:
-            if tag and tag not in labels:
-                labels.append(tag)
+            if tag and tag not in labels_list:
+                labels_list.append(tag)
                 label_changed = True
+        # Update the original labels list if it's mutable
+        if isinstance(labels, list) and label_changed:
+            labels.clear()
+            labels.extend(labels_list)
         return label_changed
 
     def create_card(self, card_list, **kwargs):
@@ -353,6 +357,7 @@ class Helpers:
     _token_cache = None
     _token_cache_time = None
     _TOKEN_CACHE_TTL = 300  # Cache token for 5 minutes
+    _token_cache_lock = threading.Lock()  # Thread safety for cache access
 
     def __init__(self):
         self.session = boto3.session.Session()
@@ -403,10 +408,18 @@ class Helpers:
         if response is None:
             logging.error("Failed to fetch data from %s", url)
             return []
-        # Check if response is a Response object (not already parsed)
-        if hasattr(response, "text"):
+        # Check if response is a Response object and validate status
+        if hasattr(response, "status_code"):
+            if response.status_code != 200:
+                logging.error(
+                    "Request to %s failed with status code %s",
+                    url,
+                    response.status_code,
+                )
+                return []
             response_text = response.text
         else:
+            # Already parsed data - convert to string for regex
             response_text = str(response)
         # Use pre-compiled regex for better performance
         matches = list(
@@ -530,41 +543,45 @@ class Helpers:
         Henter ut en fil fra S3-bucket.
         Bruker get_s3_file for å hente filen.
         Uses caching to avoid repeated S3 calls within the TTL period.
+        Thread-safe implementation using a lock.
         """
-        # Check if we have a valid cached token
         current_time = time.time()
-        if (
-            Helpers._token_cache is not None
-            and Helpers._token_cache_time is not None
-            and (current_time - Helpers._token_cache_time) < Helpers._TOKEN_CACHE_TTL
-        ):
-            logging.debug("GET_TOKEN: Using cached token")
-            return Helpers._token_cache
 
-        response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
-        if isinstance(response, dict):
-            if "error" in response:
-                logging.error("Error fetching token: %s", response["error"])
-                return None
-            if "body" in response:
-                content_str = response["body"]
+        # Thread-safe check and update of cache
+        with Helpers._token_cache_lock:
+            # Check if we have a valid cached token
+            if (
+                Helpers._token_cache is not None
+                and Helpers._token_cache_time is not None
+                and (current_time - Helpers._token_cache_time) < Helpers._TOKEN_CACHE_TTL
+            ):
+                logging.debug("GET_TOKEN: Using cached token")
+                return Helpers._token_cache
+
+            response = Helpers.get_s3_file(self, Config.SPACE_BUCKET, Config.SPACE_PATH)
+            if isinstance(response, dict):
+                if "error" in response:
+                    logging.error("Error fetching token: %s", response["error"])
+                    return None
+                if "body" in response:
+                    content_str = response["body"]
+                else:
+                    logging.error("Unexpected response format: %s", response)
+                    return None
             else:
-                logging.error("Unexpected response format: %s", response)
-                return None
-        else:
-            content_str = response.decode("utf-8")
+                content_str = response.decode("utf-8")
 
-        try:
-            data = json.loads(content_str)
-            token = data.get("cf.escenic.credentials", None)
-            # Cache the token
-            Helpers._token_cache = token
-            Helpers._token_cache_time = current_time
-            logging.debug("GET_TOKEN: Token fetched and cached: %s", token)
-            return token
-        except json.JSONDecodeError as e:
-            logging.error("Error parsing token JSON: %s", e)
-            return None
+            try:
+                data = json.loads(content_str)
+                token = data.get("cf.escenic.credentials", None)
+                # Cache the token
+                Helpers._token_cache = token
+                Helpers._token_cache_time = current_time
+                logging.debug("GET_TOKEN: Token fetched and cached: %s", token)
+                return token
+            except json.JSONDecodeError as e:
+                logging.error("Error parsing token JSON: %s", e)
+                return None
 
     @staticmethod
     def get_custom_fields(card):
